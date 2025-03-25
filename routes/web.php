@@ -39,7 +39,7 @@ Route::get('/home', function() {
 })->name('home');
 
 // Routes pour les administrateurs
-Route::middleware(['auth', 'admin'])->name('admin.')->prefix('admin')->group(function() {
+Route::middleware(['auth', \App\Http\Middleware\AdminMiddleware::class])->name('admin.')->prefix('admin')->group(function() {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     
