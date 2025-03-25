@@ -56,7 +56,7 @@ Route::middleware(['auth', \App\Http\Middleware\AdminMiddleware::class])->name('
     // Route::get('/templates/{template}/download', [AdminTemplateController::class, 'download'])->name('templates.download');
     
     // Routes pour les utilisateurs
-    Route::resource('users', AdminUserController::class)->except(['show']);
+    Route::resource('users', AdminUserController::class);
     
     // Routes pour le profil administrateur
     Route::get('/profile', [App\Http\Controllers\Admin\ProfileController::class, 'show'])->name('profile.show');

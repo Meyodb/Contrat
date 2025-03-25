@@ -87,7 +87,7 @@
                                             <td>{{ $user->created_at ? $user->created_at->format('d/m/Y') : 'Non spécifiée' }}</td>
                                             <td>
                                                 <div class="btn-group" role="group">
-                                                    <a href="{{ route('admin.users.show', $user) }}" class="btn btn-sm btn-primary">
+                                                    <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-sm btn-primary" data-bs-toggle="tooltip" title="Voir les détails">
                                                         <i class="bi bi-eye"></i>
                                                     </a>
                                                     <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-sm btn-secondary">
