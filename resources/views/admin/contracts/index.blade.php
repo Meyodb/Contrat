@@ -18,93 +18,36 @@
             <div class="card">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Liste des contrats</h5>
-                        <div>
-                            <form action="{{ route('admin.contracts.index') }}" method="GET" class="d-flex">
-                                <select name="status" class="form-select me-2" onchange="this.form.submit()">
-                                    <option value="">Tous les statuts</option>
-                                    <option value="draft" {{ request('status') == 'draft' ? 'selected' : '' }}>Brouillon</option>
-                                    <option value="submitted" {{ request('status') == 'submitted' ? 'selected' : '' }}>Soumis</option>
-                                    <option value="in_review" {{ request('status') == 'in_review' ? 'selected' : '' }}>En révision</option>
-                                    <option value="admin_signed" {{ request('status') == 'admin_signed' ? 'selected' : '' }}>Signé admin</option>
-                                    <option value="employee_signed" {{ request('status') == 'employee_signed' ? 'selected' : '' }}>Signé employé</option>
-                                    <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Complété</option>
-                                    <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Rejeté</option>
-                                </select>
-                                <div class="input-group">
-                                    <input type="text" name="search" class="form-control" placeholder="Rechercher..." value="{{ request('search') }}">
-                                    <button class="btn btn-outline-secondary" type="submit">
-                                        <i class="bi bi-search"></i>
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+                        <h5 class="mb-0">Gestion administrative</h5>
                     </div>
                 </div>
                 <div class="card-body">
-                    @if($contracts->isEmpty())
-                        <div class="alert alert-info position-relative">
-                            <button type="button" class="btn-close position-absolute" style="top: 10px; right: 10px; font-size: 0.8rem;" data-bs-dismiss="alert" aria-label="Fermer"></button>
-                            <h5>Aucun contrat trouvé</h5>
-                            <p>Il n'y a pas encore de contrats dans le système.</p>
-                        </div>
-                    @else
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Employé</th>
-                                        <th>Statut</th>
-                                        <th>Heures par mois</th>
-                                        <th>Date de soumission</th>
-                                        <th class="text-center" style="width: 150px;">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($contracts as $contract)
-                                        <tr>
-                                            <td>{{ $contract->user->name }}</td>
-                                            <td>
-                                                @if($contract->status == 'draft')
-                                                    <span class="badge bg-secondary">Brouillon</span>
-                                                @elseif($contract->status == 'submitted')
-                                                    <span class="badge bg-primary">Soumis</span>
-                                                @elseif($contract->status == 'in_review')
-                                                    <span class="badge bg-warning text-dark">En révision</span>
-                                                @elseif($contract->status == 'admin_signed')
-                                                    <span class="badge bg-info text-dark">Signé admin</span>
-                                                @elseif($contract->status == 'employee_signed')
-                                                    <span class="badge bg-success">Signé employé</span>
-                                                @elseif($contract->status == 'completed')
-                                                    <span class="badge bg-success">Complété</span>
-                                                @elseif($contract->status == 'rejected')
-                                                    <span class="badge bg-danger">Rejeté</span>
-                                                @endif
-                                            </td>
-                                            <td>{{ $contract->data && $contract->data->monthly_hours ? $contract->data->monthly_hours : 'N/A' }}</td>
-                                            <td>{{ $contract->created_at ? $contract->created_at->format('d/m/Y') : 'Non spécifiée' }}</td>
-                                            <td>
-                                                <div class="btn-group">
-                                                    <a href="{{ route('admin.contracts.show', $contract) }}" class="btn btn-sm btn-primary">
-                                                        <i class="bi bi-eye"></i>
-                                                    </a>
-                                                    @if(in_array($contract->status, ['submitted', 'in_review']))
-                                                        <a href="{{ route('admin.contracts.edit', $contract) }}" class="btn btn-sm btn-secondary">
-                                                            <i class="bi bi-pencil"></i>
-                                                        </a>
-                                                    @endif
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+                    <div class="alert alert-info mb-4">
+                        <h5><i class="bi bi-info-circle me-2"></i>Information</h5>
+                        <p>La liste des contrats a été désactivée dans cette interface. Veuillez accéder directement aux contrats via leur URL spécifique ou utiliser les outils d'administration avancés.</p>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="bi bi-file-earmark-text me-2"></i>Modèles de contrats</h5>
+                                    <p class="card-text">Gérez les modèles de contrats disponibles pour les employés.</p>
+                                    <a href="{{ route('admin.templates.index') }}" class="btn btn-outline-primary">Gérer les modèles</a>
+                                </div>
+                            </div>
                         </div>
                         
-                        <div class="d-flex justify-content-center mt-4">
-                            {{ $contracts->links() }}
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="bi bi-people me-2"></i>Gestion des utilisateurs</h5>
+                                    <p class="card-text">Gérez les comptes utilisateurs et leurs permissions.</p>
+                                    <a href="{{ route('admin.users.index') }}" class="btn btn-outline-primary">Gérer les utilisateurs</a>
+                                </div>
+                            </div>
                         </div>
-                    @endif
+                    </div>
                 </div>
             </div>
         </div>
