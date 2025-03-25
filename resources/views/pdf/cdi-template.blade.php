@@ -210,10 +210,8 @@
                         <p>Pour la société</p>
                         <p>{{ $admin->name ?? 'L\'administrateur' }}</p>
                         <p>&nbsp;</p>
-                        @if(isset($admin_signature))
-                            <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block; text-align:center;">
-                                Signature de l'employeur
-                            </div>
+                        @if(isset($admin_signature) && file_exists(storage_path('app/public/signatures/admin_signature.png')))
+                            <img src="file://{{storage_path('app/public/signatures/admin_signature.png')}}" alt="Signature de l'employeur" style="max-height: 100px;">
                         @else
                             <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block;"></div>
                         @endif
@@ -223,10 +221,8 @@
                         <p style="margin-bottom: 10px;"><strong>L'employé(e)</strong></p>
                         <p>{{ $data->first_name ?? '' }} {{ $data->last_name ?? '' }}</p>
                         <p>&nbsp;</p>
-                        @if(isset($employee_signature))
-                            <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block; text-align:center;">
-                                Signature de l'employé
-                            </div>
+                        @if(isset($employee_signature) && file_exists(storage_path('app/public/' . $employee_signature)))
+                            <img src="file://{{storage_path('app/public/' . $employee_signature)}}" alt="Signature de l'employé" style="max-height: 100px;">
                         @else
                             <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block;"></div>
                         @endif
@@ -247,10 +243,8 @@
         <p>Cordialement</p>
         
         <div style="height: 60px; margin-top: 20px; position: relative;">
-            @if(isset($employee_signature))
-                <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block; text-align:center;">
-                    Signature de l'employé
-                </div>
+            @if(isset($employee_signature) && file_exists(storage_path('app/public/' . $employee_signature)))
+                <img src="file://{{storage_path('app/public/' . $employee_signature)}}" alt="Signature de l'employé" style="max-height: 100px;">
             @else
                 <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block;"></div>
             @endif
