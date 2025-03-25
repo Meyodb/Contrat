@@ -15,7 +15,6 @@ use PhpOffice\PhpWord\Settings;
 use PhpOffice\PhpWord\PhpWord;
 use Dompdf\Dompdf;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Dompdf\Options;
 
 class ContractController extends Controller
 {
@@ -448,7 +447,7 @@ class ContractController extends Controller
             $signatureData = $request->employee_signature;
             
             // Créer les dossiers pour les signatures si nécessaires
-            $privateDir = storage_path('app/private/signatures');
+            $privateDir = storage_path('app/private/private/signatures');
             if (!file_exists($privateDir)) {
                 mkdir($privateDir, 0755, true);
             }
@@ -459,7 +458,7 @@ class ContractController extends Controller
             }
             
             // Sauvegarder dans le dossier privé pour la sécurité
-            $privateSignaturePath = 'private/signatures/' . $contract->id . '_employee.png';
+            $privateSignaturePath = 'private/private/signatures/' . $contract->id . '_employee.png';
             Storage::put($privateSignaturePath, base64_decode(explode(',', $signatureData)[1]));
             
             // Sauvegarder également dans le dossier public pour l'affichage
@@ -497,68 +496,47 @@ class ContractController extends Controller
      */
     public function download(Contract $contract)
     {
+        // Vérifier que l'utilisateur est bien le propriétaire du contrat
+        if ($contract->user_id !== Auth::id() && !Auth::user()->is_admin) {
+            return redirect()->route('home')->with('status', 'Vous n\'êtes pas autorisé à télécharger ce contrat.');
+        }
+        
         try {
-            // Vérifier que l'utilisateur est bien l'employé associé au contrat
-            $this->authorize('view', $contract);
-            
-            // Si le contrat a un document final généré, retourner ce document
-            if ($contract->final_document_path && Storage::exists($contract->final_document_path)) {
-                return response()->download(
-                    storage_path('app/' . $contract->final_document_path),
-                    'contrat_' . $contract->id . '_' . str_replace(' ', '_', $contract->user->name) . '.pdf'
-                );
-            }
-            
-            // Sinon, générer le document (même code que dans AdminContractController)
             // Augmenter le temps d'exécution maximum pour éviter les timeouts
             set_time_limit(300);
             ini_set('memory_limit', '512M');
             
+            // Toujours générer un nouveau PDF avec les données les plus récentes
             // Charger les données du contrat
             $contractData = ContractData::where('contract_id', $contract->id)->first();
             if (!$contractData) {
                 return redirect()->back()->with('error', 'Données du contrat non trouvées.');
             }
             
-            // Préparer les données pour le template
-            $data = $contractData;
-            
-            // Vérifier les chemins de signature pour corriger les erreurs de chemin
-            $employeeSignature = $contract->employee_signature;
-            if (strpos($employeeSignature, 'http') === 0) {
-                // Si c'est une URL, utiliser cette URL directement
-                $employeeSignature = $contract->employee_signature;
-            } elseif (!empty($employeeSignature)) {
-                // Sinon considérer que c'est un chemin dans le stockage
-                $employeeSignature = asset('storage/' . basename($employeeSignature));
-            }
-            
             // Configuration optimisée de DomPDF
-            $options = new Options();
+            $options = new \Dompdf\Options();
             $options->set('isHtml5ParserEnabled', true);
             $options->set('isRemoteEnabled', true);
             $options->set('isPhpEnabled', true);
             $options->set('defaultFont', 'Arial');
+            $options->set('isFontSubsettingEnabled', true);
+            $options->set('dpi', 96);
             
-            // Créer l'instance DomPDF avec les options optimisées
-            $dompdf = new Dompdf($options);
+            // Préparer les chemins des signatures sans utiliser GD
+            $adminSignatureExists = file_exists(public_path('storage/signatures/admin_signature.png'));
+            $employeeSignatureExists = $contract->employee_signature ? file_exists(public_path('storage/' . $contract->employee_signature)) : false;
             
             // Générer le HTML du contrat
             $html = view('pdf.cdi-template', [
-                'data' => $data, 
+                'data' => $contractData, 
                 'contract' => $contract,
-                'admin_signature' => $contract->admin_signature,
-                'employee_signature' => $employeeSignature
+                'admin_signature' => $adminSignatureExists,
+                'employee_signature' => $employeeSignatureExists ? $contract->employee_signature : null
             ])->render();
             
-            // Définir le chemin de base pour les ressources
-            $dompdf->setBasePath(public_path());
-            
             // Charger le HTML dans DomPDF
+            $dompdf = new \Dompdf\Dompdf($options);
             $dompdf->loadHtml($html);
-            
-            // Configurer la page
-            $dompdf->setPaper('A4', 'portrait');
             
             // Rendre le PDF
             $dompdf->render();
@@ -566,20 +544,43 @@ class ContractController extends Controller
             // Générer le PDF en mémoire
             $output = $dompdf->output();
             
+            // Créer les répertoires des contrats s'ils n'existent pas
+            $contractsDir = storage_path('app/contracts');
+            if (!file_exists($contractsDir)) {
+                mkdir($contractsDir, 0755, true);
+            }
+            
+            $privateContractsDir = storage_path('app/private/contracts');
+            if (!file_exists($privateContractsDir)) {
+                mkdir($privateContractsDir, 0755, true);
+            }
+            
             // Définir le chemin du fichier PDF
             $filename = 'contrat_' . $contract->id . '_' . str_replace(' ', '_', $contract->user->name) . '.pdf';
+            $pdfPath = 'contracts/' . $filename;
+            $privatePdfPath = 'private/contracts/' . $filename;
+            
+            // Sauvegarder le PDF dans les deux emplacements
+            Storage::put($pdfPath, $output);
+            Storage::put($privatePdfPath, $output);
+            
+            // Mettre à jour le chemin du document final dans la base de données si ce n'est pas déjà fait
+            if (!$contract->final_document_path) {
+                $contract->final_document_path = $pdfPath;
+                $contract->generated_at = now();
+                $contract->save();
+            }
             
             // Télécharger le PDF directement depuis la mémoire
             return response($output)
                 ->header('Content-Type', 'application/pdf')
-                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
-                
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+                ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                ->header('Pragma', 'no-cache')
+                ->header('Expires', '0');
         } catch (\Exception $e) {
-            // Log l'erreur
-            \Log::error('Erreur lors du téléchargement du contrat PDF pour l\'employé: ' . $e->getMessage());
-            \Log::error($e->getTraceAsString());
-            
-            return redirect()->back()->with('error', 'Erreur lors de la génération du PDF: ' . $e->getMessage());
+            // En cas d'erreur, rediriger avec un message d'erreur
+            return back()->with('error', 'Erreur lors de la génération du PDF: ' . $e->getMessage());
         }
     }
 

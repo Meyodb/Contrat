@@ -32,9 +32,7 @@ class TestController extends Controller
             'contract' => $contract,
             'user' => $contract->user,
             'admin' => $contract->admin,
-            'data' => $contract->data,
-            'employee_signature' => $contract->status === 'signed' ? 'signatures/' . $contract->user_id . '.png' : null,
-            'admin_signature' => $contract->status === 'signed'
+            'data' => $contract->data
         ];
 
         // Générer le HTML avec le template Blade

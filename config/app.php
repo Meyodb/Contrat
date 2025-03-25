@@ -1,7 +1,5 @@
 <?php
 
-use Illuminate\Support\Facades\Facade;
-
 return [
 
     /*
@@ -135,10 +133,5 @@ return [
     /*
      * Application Service Providers...
      */
-
-    'aliases' => Facade::defaultAliases()->merge([
-        // 'Example' => App\Facades\Example::class,
-        'PDF' => Barryvdh\DomPDF\Facade::class,
-    ])->toArray(),
 
 ];

@@ -473,15 +473,6 @@ class ContractController extends Controller
             set_time_limit(300);
             ini_set('memory_limit', '512M');
             
-            // Si le contrat a déjà un document final et qu'il existe, retourner ce document
-            if ($contract->final_document_path && Storage::exists($contract->final_document_path)) {
-                return response()->download(
-                    storage_path('app/' . $contract->final_document_path),
-                    'contrat_' . $contract->id . '_' . str_replace(' ', '_', $contract->user->name) . '.pdf'
-                );
-            }
-            
-            // Si le document n'existe pas, le générer
             // Charger les données du contrat
             $contractData = ContractData::where('contract_id', $contract->id)->first();
             if (!$contractData) {
@@ -490,16 +481,6 @@ class ContractController extends Controller
             
             // Préparer les données pour le template
             $data = $contractData;
-            
-            // Vérifier les chemins de signature pour corriger les erreurs de chemin
-            $employeeSignature = $contract->employee_signature;
-            if (strpos($employeeSignature, 'http') === 0) {
-                // Si c'est une URL, utiliser cette URL directement
-                $employeeSignature = $contract->employee_signature;
-            } elseif (!empty($employeeSignature)) {
-                // Sinon considérer que c'est un chemin dans le stockage
-                $employeeSignature = asset('storage/' . basename($employeeSignature));
-            }
             
             // Configuration optimisée de DomPDF
             $options = new Options();
@@ -520,17 +501,26 @@ class ContractController extends Controller
                 'data' => $data, 
                 'contract' => $contract,
                 'admin_signature' => $contract->admin_signature,
-                'employee_signature' => $employeeSignature
+                'employee_signature' => $contract->employee_signature
             ])->render();
             
             // Activer le débogage pour voir les erreurs
-            $dompdf->setBasePath(public_path());
+            $dompdf->setOptions(new Options([
+                'isHtml5ParserEnabled' => true,
+                'isRemoteEnabled' => true,
+                'isPhpEnabled' => true,
+                'defaultFont' => 'Arial',
+                'isFontSubsettingEnabled' => true,
+                'dpi' => 96,
+                'defaultMediaType' => 'screen',
+                'defaultPaperSize' => 'a4',
+                'debugKeepTemp' => true,
+                'debugCss' => true,
+                'debugLayout' => true
+            ]));
             
             // Charger le HTML dans DomPDF
             $dompdf->loadHtml($html);
-            
-            // Configurer la page
-            $dompdf->setPaper('A4', 'portrait');
             
             // Rendre le PDF
             $dompdf->render();
@@ -573,13 +563,11 @@ class ContractController extends Controller
             // Télécharger le PDF directement depuis la mémoire
             return response($output)
                 ->header('Content-Type', 'application/pdf')
-                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
-                
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+                ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                ->header('Pragma', 'no-cache')
+                ->header('Expires', '0');
         } catch (\Exception $e) {
-            // Log l'erreur
-            \Log::error('Erreur lors du téléchargement du contrat PDF: ' . $e->getMessage());
-            \Log::error($e->getTraceAsString());
-            
             return redirect()->back()->with('error', 'Erreur lors de la génération du PDF: ' . $e->getMessage());
         }
     }
