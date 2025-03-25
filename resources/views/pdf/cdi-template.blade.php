@@ -205,27 +205,17 @@
                 <td style="width: 50%; text-align: left; vertical-align: top;">
                     <p>M BRIAND Grégory</p>
                     <p>Pour la société</p>
-                    @if($admin_signature)
-                        <div style="height: 60px; margin-top: 20px; position: relative;">
-                            <img src="{{ public_path('storage/signatures/admin_signature.png') }}" alt="Signature de l'employeur" style="max-height: 100px;">
-                        </div>
-                    @else
-                        <div style="height: 60px; border-bottom: 1px solid #000; margin-top: 20px; position: relative;">
-                            <p style="position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);">Signature</p>
-                        </div>
-                    @endif
+                    <div style="height: 60px; margin-top: 20px; position: relative;">
+                        <img src="{{ file_exists(storage_path('app/public/signatures/admin_signature.png')) ? 'file://'.storage_path('app/public/signatures/admin_signature.png') : '' }}" alt="Signature de l'employeur" style="max-height: 100px;">
+                    </div>
                 </td>
                 <td style="width: 50%; text-align: right; vertical-align: top;">
                     <p>{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }}</p>
-                    @if($employee_signature)
-                        <div style="height: 60px; margin-top: 20px; position: relative;">
-                            <img src="{{ public_path('storage/' . $employee_signature) }}" alt="Signature de l'employé" style="max-height: 100px;">
-                        </div>
-                    @else
-                        <div style="height: 60px; border-bottom: 1px solid #000; margin-top: 20px; position: relative;">
-                            <p style="position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);">Signature</p>
-                        </div>
-                    @endif
+                    <div style="height: 60px; margin-top: 20px; position: relative;">
+                        @if($employee_signature && file_exists(storage_path('app/public/'.$employee_signature)))
+                            <img src="file://{{storage_path('app/public/'.$employee_signature)}}" alt="Signature de l'employé" style="max-height: 100px;">
+                        @endif
+                    </div>
                 </td>
             </tr>
         </table>
@@ -241,15 +231,11 @@
 
         <p>Cordialement</p>
         
-        @if($employee_signature)
-            <div style="height: 60px; margin-top: 20px; position: relative;">
-                <img src="{{ public_path('storage/' . $employee_signature) }}" alt="Signature de l'employé" style="max-height: 100px;">
-            </div>
-        @else
-            <div style="height: 60px; border-bottom: 1px solid #000; margin-top: 20px; position: relative;">
-                <p style="position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);">Signature</p>
-            </div>
-        @endif
+        <div style="height: 60px; margin-top: 20px; position: relative;">
+            @if($employee_signature && file_exists(storage_path('app/public/'.$employee_signature)))
+                <img src="file://{{storage_path('app/public/'.$employee_signature)}}" alt="Signature de l'employé" style="max-height: 100px;">
+            @endif
+        </div>
     </div>  
 </body>
 </html> 
