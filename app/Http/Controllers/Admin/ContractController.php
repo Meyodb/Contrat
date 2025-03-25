@@ -526,15 +526,14 @@ class ContractController extends Controller
             
             // Configuration optimisée de DomPDF
             $options = new \Dompdf\Options();
-            $options->set('isHtml5ParserEnabled', true);
-            $options->set('isRemoteEnabled', true);
             $options->set('isPhpEnabled', true);
-            $options->set('defaultFont', 'Arial');
-            $options->set('isFontSubsettingEnabled', true);
-            $options->set('dpi', 96);
-            $options->set('debugKeepTemp', true);
-            $options->set('debugCss', true);
-            $options->set('debugLayout', true);
+            $options->set('isHtml5ParserEnabled', true); 
+            $options->set('isRemoteEnabled', true);
+            $options->set('isFontSubsettingEnabled', false);
+            $options->set('debugPng', false);
+            $options->set('debugKeepTemp', false);
+            $options->set('debugCss', false);
+            $options->set('debugLayout', false);
             $options->set('chroot', storage_path('app'));
             $options->set('logOutputFile', storage_path('logs/pdf.log'));
             
@@ -717,6 +716,14 @@ class ContractController extends Controller
             $options = new Options();
             $options->set('isHtml5ParserEnabled', true);
             $options->set('isRemoteEnabled', true);
+            $options->set('isPhpEnabled', true);
+            $options->set('isFontSubsettingEnabled', false);
+            $options->set('debugPng', false);
+            $options->set('debugKeepTemp', false);
+            $options->set('debugCss', false);
+            $options->set('debugLayout', false);
+            $options->set('chroot', storage_path('app'));
+            $options->set('logOutputFile', storage_path('logs/pdf.log'));
             
             // Créer l'instance DomPDF
             $dompdf = new Dompdf($options);
