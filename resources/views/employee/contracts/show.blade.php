@@ -255,9 +255,10 @@
                                                     
                                                     @if($contract->admin_signature_id)
                                                     <div class="mt-2">
-                                                @else
-                                                    <p class="text-muted">Non signé</p>
-                                                @endif
+                                                    @endif
+                                                    @else
+                                                        <p class="text-muted">Non signé</p>
+                                                    @endif
                                             </div>
                                             <div class="col-md-6 text-center">
                                                 <h6>Signature de l'employé</h6>
