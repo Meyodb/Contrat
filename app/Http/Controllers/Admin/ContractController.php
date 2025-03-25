@@ -237,36 +237,42 @@ class ContractController extends Controller
             \Artisan::call('storage:link');
         }
         
-        // Traiter la signature de l'administrateur
-        if ($request->has('admin_signature')) {
-            // Utiliser la signature enregistrée de l'administrateur
-            if ($request->has('admin_signature') && strpos($request->admin_signature, 'data:image/png;base64,') === 0) {
-                $signatureData = $request->admin_signature;
-                
-                // Utiliser toujours le même nom pour la signature admin
-                $privateSignaturePath = 'private/signatures/admin_signature.png';
-                Storage::put($privateSignaturePath, base64_decode(explode(',', $signatureData)[1]));
-                
-                $publicSignaturePath = 'public/signatures/admin_signature.png';
-                Storage::put($publicSignaturePath, base64_decode(explode(',', $signatureData)[1]));
-                
-                // L'URL est maintenant toujours la même
-                $signatureUrl = asset('storage/signatures/admin_signature.png');
-                
-                // Mettre à jour le contrat avec la signature de l'administrateur
-                $contract->update([
-                    'admin_signature' => $signatureUrl,
-                    'admin_signed_at' => now(),
-                    'status' => 'admin_signed'
-                ]);
+        try {
+            // Utiliser toujours le même nom pour la signature admin
+            $privateSignaturePath = 'private/signatures/admin_signature.png';
+            $publicSignaturePath = 'public/signatures/admin_signature.png';
+            
+            // Vérifier si la signature existe déjà, sinon utiliser une signature par défaut
+            if (!Storage::exists($publicSignaturePath)) {
+                // Si on n'a pas de signature, copier une signature par défaut ou en créer une
+                $defaultSignature = base64_encode(file_get_contents(public_path('img/default_admin_signature.png')));
+                Storage::put($privateSignaturePath, base64_decode($defaultSignature));
+                Storage::put($publicSignaturePath, base64_decode($defaultSignature));
             }
+            
+            // L'URL est maintenant toujours la même
+            $signaturePath = 'signatures/admin_signature.png';
+            
+            // Mettre à jour le contrat avec la signature de l'administrateur
+            $contract->update([
+                'admin_signature' => $signaturePath,
+                'admin_signed_at' => now(),
+                'status' => 'admin_signed'
+            ]);
+            
+            // Log pour debugger
+            \Log::info('Contrat #' . $contract->id . ' signé par admin, statut mis à jour: ' . $contract->status);
+            
+            // Notification à l'employé que le contrat a été signé par l'administrateur
+            $contract->user->notify(new \App\Notifications\ContractSignedByAdmin($contract));
+            
+            return redirect()->route('admin.contracts.show', $contract)
+                ->with('success', 'Contrat signé avec succès');
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors de la signature du contrat: ' . $e->getMessage());
+            return redirect()->route('admin.contracts.show', $contract)
+                ->with('error', 'Une erreur est survenue lors de la signature du contrat: ' . $e->getMessage());
         }
-        
-        // Notification à l'employé que le contrat a été signé par l'administrateur
-        $contract->user->notify(new \App\Notifications\ContractSignedByAdmin($contract));
-        
-        return redirect()->route('admin.contracts.index')
-            ->with('success', 'Contrat signé avec succès');
     }
 
     /**
