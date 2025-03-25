@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Facade;
+
 return [
 
     /*
@@ -122,5 +124,21 @@ return [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
+
+    // Package Service Providers...
+    /*
+     * Package Service Providers...
+     */
+    Spatie\Permission\PermissionServiceProvider::class,
+    Barryvdh\DomPDF\ServiceProvider::class,
+
+    /*
+     * Application Service Providers...
+     */
+
+    'aliases' => Facade::defaultAliases()->merge([
+        // 'Example' => App\Facades\Example::class,
+        'PDF' => Barryvdh\DomPDF\Facade::class,
+    ])->toArray(),
 
 ];

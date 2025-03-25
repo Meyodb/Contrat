@@ -10,6 +10,7 @@ use App\Http\Controllers\Employee\ContractController as EmployeeContractControll
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\PhotoController;
 use App\Http\Controllers\SignatureController;
+use App\Http\Controllers\CertifiedSignatureController;
 
 /*
 |--------------------------------------------------------------------------
@@ -110,3 +111,20 @@ Route::get('/employee-photos/{filename}', [PhotoController::class, 'showEmployee
 
 // Routes pour les signatures
 Route::get('/signatures/{filename}', [SignatureController::class, 'showSignature'])->name('signature');
+
+// Routes pour les signatures certifiées
+Route::get('/verify-signature/{id}', [CertifiedSignatureController::class, 'verify'])->name('verify.signature');
+Route::get('/certificate/{id}/download', [CertifiedSignatureController::class, 'downloadCertificate'])->name('signature.certificate.download');
+
+// Routes pour l'authentification par code unique (2FA pour les signatures)
+Route::post('/verify-identity', [CertifiedSignatureController::class, 'sendVerificationCode'])->name('verify.identity');
+Route::post('/verify-code', [CertifiedSignatureController::class, 'verifyCode'])->name('verify.code');
+
+// Remplacer les routes de signature existantes pour utiliser les signatures certifiées
+Route::post('/employee/contracts/{contract}/sign', [CertifiedSignatureController::class, 'employeeSign'])
+    ->name('employee.contracts.sign')
+    ->middleware('auth');
+
+Route::post('/admin/contracts/{contract}/sign', [CertifiedSignatureController::class, 'adminSign'])
+    ->name('admin.contracts.sign')
+    ->middleware('auth');

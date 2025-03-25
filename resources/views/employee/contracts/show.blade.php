@@ -252,6 +252,14 @@
                                                 @if($contract->admin_signature)
                                                     <img src="{{ route('signature', ['filename' => 'admin_signature.png']) }}" alt="Signature de l'employeur" class="img-fluid" style="max-height: 100px;">
                                                     <p class="mt-2">Signé le {{ $contract->admin_signed_at ? $contract->admin_signed_at->format('d/m/Y') : 'Date inconnue' }}</p>
+                                                    
+                                                    @if($contract->admin_signature_id)
+                                                    <div class="mt-2">
+                                                        <a href="{{ route('verify.signature', $contract->admin_signature_id) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                            <i class="bi bi-shield-check"></i> Vérifier la signature
+                                                        </a>
+                                                    </div>
+                                                    @endif
                                                 @else
                                                     <p class="text-muted">Non signé</p>
                                                 @endif
@@ -264,6 +272,14 @@
                                                     @endphp
                                                     <img src="{{ route('signature', ['filename' => $employeeSignatureFilename]) }}" alt="Signature de l'employé" class="img-fluid" style="max-height: 100px;">
                                                     <p class="mt-2">Signé le {{ $contract->employee_signed_at ? $contract->employee_signed_at->format('d/m/Y') : 'Date inconnue' }}</p>
+                                                    
+                                                    @if($contract->signature_id)
+                                                    <div class="mt-2">
+                                                        <a href="{{ route('verify.signature', $contract->signature_id) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                            <i class="bi bi-shield-check"></i> Vérifier la signature
+                                                        </a>
+                                                    </div>
+                                                    @endif
                                                 @else
                                                     <p class="text-muted">Non signé</p>
                                                 @endif

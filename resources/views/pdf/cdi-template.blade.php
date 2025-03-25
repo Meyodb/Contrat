@@ -200,27 +200,44 @@
         
         <p>A Paris, le {{ $data->contract_start_date ? date('d/m/Y', strtotime($data->contract_start_date)) : '___________' }}</p>
         
-        <table style="width: 100%; margin-top: 30px;">
-            <tr>
-                <td style="width: 50%; text-align: left; vertical-align: top;">
-                    <p>M BRIAND Grégory</p>
-                    <p>Pour la société</p>
-                    <div style="height: 60px; margin-top: 20px; position: relative;">
+        <!-- Signatures -->
+        <div style="margin-top: 80px; margin-bottom: 20px;">
+            <table width="100%" style="border-spacing: 0;">
+                <tr>
+                    <td width="45%" style="text-align: center; vertical-align: top; padding-top: 10px;">
+                        <p style="margin-bottom: 10px;"><strong>L'employeur</strong></p>
+                        <p>M BRIAND Grégory</p>
+                        <p>Pour la société</p>
                         @if(isset($contract) && $contract->status === 'signed' && file_exists(storage_path('app/public/signatures/admin_signature.png')))
-                            <img src="file://{{storage_path('app/public/signatures/admin_signature.png')}}" alt="Signature de l'employeur" style="max-height: 100px;">
+                        <img src="file://{{storage_path('app/public/signatures/admin_signature.png')}}" alt="Signature de l'employeur" style="max-height: 100px;">
                         @endif
-                    </div>
-                </td>
-                <td style="width: 50%; text-align: right; vertical-align: top;">
-                    <p>{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }}</p>
-                    <div style="height: 60px; margin-top: 20px; position: relative;">
-                        @if(isset($contract) && $contract->status === 'signed' && $employee_signature && file_exists(storage_path('app/public/'.$employee_signature)))
-                            <img src="file://{{storage_path('app/public/'.$employee_signature)}}" alt="Signature de l'employé" style="max-height: 100px;">
+                        
+                        @if(isset($contract) && $contract->admin_signature_id && file_exists(storage_path('app/public/signatures/qrcodes/' . $contract->admin_signature_id . '.png')))
+                        <div style="margin-top: 10px;">
+                            <img src="file://{{storage_path('app/public/signatures/qrcodes/' . $contract->admin_signature_id . '.png')}}" alt="QR Code de vérification" style="max-height: 60px;">
+                            <p style="font-size: 8px; margin-top: 2px;">Scan pour vérifier la signature</p>
+                        </div>
                         @endif
-                    </div>
-                </td>
-            </tr>
-        </table>
+                    </td>
+                    <td width="10%">&nbsp;</td>
+                    <td width="45%" style="text-align: center; vertical-align: top; padding-top: 10px;">
+                        <p style="margin-bottom: 10px;"><strong>L'employé(e)</strong></p>
+                        <p>{{ $data->first_name ?? '' }} {{ $data->last_name ?? '' }}</p>
+                        <p>&nbsp;</p>
+                        @if(isset($contract) && $contract->status === 'signed' && isset($employee_signature) && $employee_signature)
+                        <img src="{{ $employee_signature }}" alt="Signature de l'employé" style="max-height: 100px;">
+                        @endif
+                        
+                        @if(isset($contract) && $contract->signature_id && file_exists(storage_path('app/public/signatures/qrcodes/' . $contract->signature_id . '.png')))
+                        <div style="margin-top: 10px;">
+                            <img src="file://{{storage_path('app/public/signatures/qrcodes/' . $contract->signature_id . '.png')}}" alt="QR Code de vérification" style="max-height: 60px;">
+                            <p style="font-size: 8px; margin-top: 2px;">Scan pour vérifier la signature</p>
+                        </div>
+                        @endif
+                    </td>
+                </tr>
+            </table>
+        </div>
     </div>
 
     <!-- Forcer un saut de page avant l'annexe -->

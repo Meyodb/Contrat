@@ -29,6 +29,7 @@ class Contract extends Model
         'employee_signed_at',
         'completed_at',
         'generated_at',
+        'certificate_generated_at'
     ];
 
     /**
