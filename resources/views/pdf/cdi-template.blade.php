@@ -211,14 +211,21 @@
                         <p>{{ $admin->name ?? 'L\'administrateur' }}</p>
                         <p>&nbsp;</p>
                         @if(isset($admin_signature))
-                            <img src="{{ asset('storage/' . $admin_signature) }}" alt="Signature de l'employeur" style="max-height: 100px;">
-                        @endif
-                        
-                        @if(isset($contract) && $contract->admin_signature_id && file_exists(storage_path('app/public/signatures/qrcodes/' . $contract->admin_signature_id . '.png')))
-                            <div style="margin-top: 10px;">
-                                <img src="file://{{storage_path('app/public/signatures/qrcodes/' . $contract->admin_signature_id . '.png')}}" alt="QR Code de vérification" style="max-height: 60px;">
-                                <p style="font-size: 8px; margin-top: 2px;">Scan pour vérifier la signature</p>
+                            <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block;">
+                            <?php
+                                $imgPath = storage_path('app/public/' . $admin_signature);
+                                if (file_exists($imgPath)) {
+                                    $type = pathinfo($imgPath, PATHINFO_EXTENSION);
+                                    $data = file_get_contents($imgPath);
+                                    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
+                                    echo '<img src="'.$base64.'" alt="Signature de l\'employeur" style="max-height: 90px; max-width: 190px;" />';
+                                } else {
+                                    echo '<div style="width:100%; height:100%;"></div>';
+                                }
+                            ?>
                             </div>
+                        @else
+                            <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block;"></div>
                         @endif
                     </td>
                     <td width="10%">&nbsp;</td>
@@ -227,14 +234,21 @@
                         <p>{{ $data->first_name ?? '' }} {{ $data->last_name ?? '' }}</p>
                         <p>&nbsp;</p>
                         @if(isset($employee_signature))
-                            <img src="{{ asset('storage/' . $employee_signature) }}" alt="Signature de l'employé" style="max-height: 100px;">
-                        @endif
-                        
-                        @if(isset($contract) && $contract->signature_id && file_exists(storage_path('app/public/signatures/qrcodes/' . $contract->signature_id . '.png')))
-                            <div style="margin-top: 10px;">
-                                <img src="file://{{storage_path('app/public/signatures/qrcodes/' . $contract->signature_id . '.png')}}" alt="QR Code de vérification" style="max-height: 60px;">
-                                <p style="font-size: 8px; margin-top: 2px;">Scan pour vérifier la signature</p>
+                            <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block;">
+                            <?php
+                                $imgPath = storage_path('app/public/' . $employee_signature);
+                                if (file_exists($imgPath)) {
+                                    $type = pathinfo($imgPath, PATHINFO_EXTENSION);
+                                    $data = file_get_contents($imgPath);
+                                    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
+                                    echo '<img src="'.$base64.'" alt="Signature de l\'employé" style="max-height: 90px; max-width: 190px;" />';
+                                } else {
+                                    echo '<div style="width:100%; height:100%;"></div>';
+                                }
+                            ?>
                             </div>
+                        @else
+                            <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block;"></div>
                         @endif
                     </td>
                 </tr>
@@ -254,7 +268,21 @@
         
         <div style="height: 60px; margin-top: 20px; position: relative;">
             @if(isset($employee_signature))
-                <img src="{{ asset('storage/' . $employee_signature) }}" alt="Signature de l'employé" style="max-height: 100px;">
+                <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block;">
+                <?php
+                    $imgPath = storage_path('app/public/' . $employee_signature);
+                    if (file_exists($imgPath)) {
+                        $type = pathinfo($imgPath, PATHINFO_EXTENSION);
+                        $data = file_get_contents($imgPath);
+                        $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
+                        echo '<img src="'.$base64.'" alt="Signature de l\'employé" style="max-height: 90px; max-width: 190px;" />';
+                    } else {
+                        echo '<div style="width:100%; height:100%;"></div>';
+                    }
+                ?>
+                </div>
+            @else
+                <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block;"></div>
             @endif
         </div>
     </div>  
