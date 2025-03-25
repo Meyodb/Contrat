@@ -650,61 +650,50 @@ class ContractController extends Controller
         $admin = auth()->user();
         
         try {
-            // Chemins possibles pour les signatures
-            $employeeSignaturePaths = [
-                public_path('storage/' . $contract->employee_signature),
-                storage_path('app/public/' . $contract->employee_signature),
-                storage_path('app/private/private/signatures/' . $contract->user_id . '_employee.png'),
-                storage_path('app/private/public/signatures/' . $contract->user_id . '_employee.png'),
-                storage_path('app/private/signatures/' . $contract->user_id . '_employee.png')
-            ];
-            
-            // Vérifier si la signature de l'employé existe dans l'un des chemins possibles
-            $employeeSignatureExists = false;
-            $employeeSignaturePath = null;
-            foreach ($employeeSignaturePaths as $path) {
-                if (file_exists($path)) {
-                    $employeeSignatureExists = true;
-                    $employeeSignaturePath = $path;
-                    break;
-                }
-            }
-            
-            // S'assurer que la signature existe en la copiant si nécessaire
-            if (!$employeeSignatureExists && $contract->employee_signature) {
-                // Chercher dans tous les dossiers possibles
-                $possibleSources = glob(storage_path('app/*/signatures/' . $contract->user_id . '_employee.png'));
-                if (!empty($possibleSources)) {
-                    $sourceFile = $possibleSources[0];
-                    $destDir = storage_path('app/public/signatures');
-                    if (!file_exists($destDir)) {
-                        mkdir($destDir, 0755, true);
-                    }
-                    $destPath = $destDir . '/' . $contract->user_id . '_employee.png';
-                    copy($sourceFile, $destPath);
-                    $employeeSignatureExists = true;
-                    $employeeSignaturePath = $destPath;
-                }
-            }
-            
             // Vérifier si la signature admin existe
-            $adminSignatureExists = file_exists(public_path('storage/signatures/admin_signature.png'));
-            $adminSignaturePath = public_path('storage/signatures/admin_signature.png');
+            $adminSignatureExists = file_exists(storage_path('app/public/signatures/admin_signature.png'));
+            
+            // Vérifier si la signature de l'employé existe
+            $employeeSignaturePath = null;
+            if ($contract->user_id) {
+                $employeeSignaturePath = 'signatures/' . $contract->user_id . '_employee.png';
+                $employeeSignatureExists = file_exists(storage_path('app/public/' . $employeeSignaturePath));
+                
+                // Si la signature n'existe pas dans le chemin principal, vérifier d'autres chemins
+                if (!$employeeSignatureExists) {
+                    $alternativePaths = [
+                        storage_path('app/public/signatures/' . $contract->user_id . '_employee.png'),
+                        storage_path('app/private/signatures/' . $contract->user_id . '_employee.png'),
+                        storage_path('app/private/public/signatures/' . $contract->user_id . '_employee.png'),
+                        storage_path('app/private/private/signatures/' . $contract->user_id . '_employee.png')
+                    ];
+                    
+                    foreach ($alternativePaths as $path) {
+                        if (file_exists($path)) {
+                            // Copier la signature dans le dossier public si elle existe ailleurs
+                            $targetDir = storage_path('app/public/signatures');
+                            if (!file_exists($targetDir)) {
+                                mkdir($targetDir, 0755, true);
+                            }
+                            
+                            $targetPath = $targetDir . '/' . $contract->user_id . '_employee.png';
+                            copy($path, $targetPath);
+                            $employeeSignatureExists = true;
+                            $employeeSignaturePath = 'signatures/' . $contract->user_id . '_employee.png';
+                            break;
+                        }
+                    }
+                }
+            }
             
             // Log des informations pour le débogage
             \Log::info('Génération du PDF pour le contrat #' . $contract->id, [
                 'status' => $contract->status,
-                'admin_signature' => $contract->admin_signature,
-                'employee_signature' => $contract->employee_signature,
-                'admin_signature_exists' => $adminSignatureExists,
-                'employee_signature_exists' => $employeeSignatureExists,
+                'admin_signature' => $adminSignatureExists ? 'trouvée' : 'non trouvée',
+                'employee_signature' => $employeeSignatureExists ? 'trouvée' : 'non trouvée',
                 'employee_signature_path' => $employeeSignaturePath,
-                'admin_signature_path' => $adminSignaturePath
+                'contract_user_id' => $contract->user_id
             ]);
-            
-            // Préparer les chemins relatifs pour le template
-            $adminSignatureRelPath = $adminSignatureExists ? 'signatures/admin_signature.png' : null;
-            $employeeSignatureRelPath = $employeeSignatureExists ? 'signatures/' . $contract->user_id . '_employee.png' : null;
             
             // Utiliser le template Blade pour générer le PDF
             $html = view('pdf.cdi-template', [
@@ -712,8 +701,8 @@ class ContractController extends Controller
                 'user' => $contract->user,
                 'admin' => $admin,
                 'data' => $data,
-                'admin_signature' => $adminSignatureRelPath,
-                'employee_signature' => $employeeSignatureRelPath
+                'admin_signature' => $adminSignatureExists ? true : null,
+                'employee_signature' => $employeeSignatureExists ? $employeeSignaturePath : null
             ])->render();
             
             // Configurer DomPDF
@@ -721,11 +710,7 @@ class ContractController extends Controller
             $options->set('isHtml5ParserEnabled', true);
             $options->set('isRemoteEnabled', true);
             $options->set('isPhpEnabled', true);
-            $options->set('isFontSubsettingEnabled', false);
-            $options->set('debugPng', false);
-            $options->set('debugKeepTemp', false);
-            $options->set('debugCss', false);
-            $options->set('debugLayout', false);
+            $options->set('debugPng', true); // Activer le débogage PNG pour voir les problèmes d'images
             $options->set('chroot', storage_path('app'));
             $options->set('logOutputFile', storage_path('logs/pdf.log'));
             
