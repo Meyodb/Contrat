@@ -532,6 +532,11 @@ class ContractController extends Controller
             $options->set('defaultFont', 'Arial');
             $options->set('isFontSubsettingEnabled', true);
             $options->set('dpi', 96);
+            $options->set('debugKeepTemp', true);
+            $options->set('debugCss', true);
+            $options->set('debugLayout', true);
+            $options->set('chroot', storage_path('app'));
+            $options->set('logOutputFile', storage_path('logs/pdf.log'));
             
             // Log des informations pour le débogage
             \Log::info('Téléchargement du contrat #' . $contract->id, [

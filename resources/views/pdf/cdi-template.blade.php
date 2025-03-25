@@ -211,7 +211,7 @@
                         <p>{{ $admin->name ?? 'L\'administrateur' }}</p>
                         <p>&nbsp;</p>
                         @if(isset($admin_signature))
-                            <img src="file://{{storage_path('app/public/' . $admin_signature)}}" alt="Signature de l'employeur" style="max-height: 100px;">
+                            <img src="data:image/png;base64,{{ base64_encode(file_get_contents(storage_path('app/public/' . $admin_signature))) }}" alt="Signature de l'employeur" style="max-height: 100px;">
                         @endif
                         
                         @if(isset($contract) && $contract->admin_signature_id && file_exists(storage_path('app/public/signatures/qrcodes/' . $contract->admin_signature_id . '.png')))
@@ -227,7 +227,7 @@
                         <p>{{ $data->first_name ?? '' }} {{ $data->last_name ?? '' }}</p>
                         <p>&nbsp;</p>
                         @if(isset($employee_signature))
-                            <img src="file://{{storage_path('app/public/' . $employee_signature)}}" alt="Signature de l'employé" style="max-height: 100px;">
+                            <img src="data:image/png;base64,{{ base64_encode(file_get_contents(storage_path('app/public/' . $employee_signature))) }}" alt="Signature de l'employé" style="max-height: 100px;">
                         @endif
                         
                         @if(isset($contract) && $contract->signature_id && file_exists(storage_path('app/public/signatures/qrcodes/' . $contract->signature_id . '.png')))
@@ -254,7 +254,7 @@
         
         <div style="height: 60px; margin-top: 20px; position: relative;">
             @if(isset($employee_signature))
-                <img src="file://{{storage_path('app/public/' . $employee_signature)}}" alt="Signature de l'employé" style="max-height: 100px;">
+                <img src="data:image/png;base64,{{ base64_encode(file_get_contents(storage_path('app/public/' . $employee_signature))) }}" alt="Signature de l'employé" style="max-height: 100px;">
             @endif
         </div>
     </div>  
