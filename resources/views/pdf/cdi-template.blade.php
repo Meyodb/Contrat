@@ -206,13 +206,15 @@
                     <p>M BRIAND Grégory</p>
                     <p>Pour la société</p>
                     <div style="height: 60px; margin-top: 20px; position: relative;">
-                        <img src="{{ file_exists(storage_path('app/public/signatures/admin_signature.png')) ? 'file://'.storage_path('app/public/signatures/admin_signature.png') : '' }}" alt="Signature de l'employeur" style="max-height: 100px;">
+                        @if(isset($contract) && $contract->status === 'signed' && file_exists(storage_path('app/public/signatures/admin_signature.png')))
+                            <img src="file://{{storage_path('app/public/signatures/admin_signature.png')}}" alt="Signature de l'employeur" style="max-height: 100px;">
+                        @endif
                     </div>
                 </td>
                 <td style="width: 50%; text-align: right; vertical-align: top;">
                     <p>{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }}</p>
                     <div style="height: 60px; margin-top: 20px; position: relative;">
-                        @if($employee_signature && file_exists(storage_path('app/public/'.$employee_signature)))
+                        @if(isset($contract) && $contract->status === 'signed' && $employee_signature && file_exists(storage_path('app/public/'.$employee_signature)))
                             <img src="file://{{storage_path('app/public/'.$employee_signature)}}" alt="Signature de l'employé" style="max-height: 100px;">
                         @endif
                     </div>
@@ -232,7 +234,7 @@
         <p>Cordialement</p>
         
         <div style="height: 60px; margin-top: 20px; position: relative;">
-            @if($employee_signature && file_exists(storage_path('app/public/'.$employee_signature)))
+            @if(isset($contract) && $contract->status === 'signed' && $employee_signature && file_exists(storage_path('app/public/'.$employee_signature)))
                 <img src="file://{{storage_path('app/public/'.$employee_signature)}}" alt="Signature de l'employé" style="max-height: 100px;">
             @endif
         </div>
