@@ -238,36 +238,29 @@ class ContractController extends Controller
         }
         
         // Traiter la signature de l'administrateur
-        if (auth()->user()->signature_image) {
+        if ($request->has('admin_signature')) {
             // Utiliser la signature enregistrée de l'administrateur
-            $signatureUrl = auth()->user()->signature_image;
-        } else {
-            // Traiter la signature dessinée
             if ($request->has('admin_signature') && strpos($request->admin_signature, 'data:image/png;base64,') === 0) {
                 $signatureData = $request->admin_signature;
                 
-                // Sauvegarder dans le dossier privé pour la sécurité
-                $privateSignaturePath = 'private/signatures/' . $contract->id . '_admin.png';
+                // Utiliser toujours le même nom pour la signature admin
+                $privateSignaturePath = 'private/signatures/admin_signature.png';
                 Storage::put($privateSignaturePath, base64_decode(explode(',', $signatureData)[1]));
                 
-                // Sauvegarder également dans le dossier public pour l'affichage
-                $publicSignaturePath = 'public/signatures/' . $contract->id . '_admin.png';
+                $publicSignaturePath = 'public/signatures/admin_signature.png';
                 Storage::put($publicSignaturePath, base64_decode(explode(',', $signatureData)[1]));
                 
-                // Générer l'URL complète pour la signature
-                $signatureUrl = asset('storage/signatures/' . $contract->id . '_admin.png');
-            } else {
-                return back()->with('status', 'Signature invalide. Veuillez réessayer.');
+                // L'URL est maintenant toujours la même
+                $signatureUrl = asset('storage/signatures/admin_signature.png');
+                
+                // Mettre à jour le contrat avec la signature de l'administrateur
+                $contract->update([
+                    'admin_signature' => $signatureUrl,
+                    'admin_signed_at' => now(),
+                    'status' => 'admin_signed'
+                ]);
             }
         }
-        
-        // Mettre à jour le contrat avec la signature de l'administrateur
-        $contract->update([
-            'admin_id' => auth()->id(),
-            'admin_signature' => $signatureUrl,
-            'admin_signed_at' => now(),
-            'status' => 'admin_signed'
-        ]);
         
         // Notification à l'employé que le contrat a été signé par l'administrateur
         $contract->user->notify(new \App\Notifications\ContractSignedByAdmin($contract));

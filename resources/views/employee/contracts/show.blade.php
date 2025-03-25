@@ -250,10 +250,7 @@
                                             <div class="col-md-6 text-center">
                                                 <h6>Signature de l'employeur</h6>
                                                 @if($contract->admin_signature)
-                                                    @php
-                                                        $adminSignatureFilename = basename($contract->admin_signature);
-                                                    @endphp
-                                                    <img src="{{ route('signature', ['filename' => $adminSignatureFilename]) }}" alt="Signature de l'employeur" class="img-fluid" style="max-height: 100px;">
+                                                    <img src="{{ route('signature', ['filename' => 'admin_signature.png']) }}" alt="Signature de l'employeur" class="img-fluid" style="max-height: 100px;">
                                                     <p class="mt-2">Signé le {{ $contract->admin_signed_at ? $contract->admin_signed_at->format('d/m/Y') : 'Date inconnue' }}</p>
                                                 @else
                                                     <p class="text-muted">Non signé</p>
