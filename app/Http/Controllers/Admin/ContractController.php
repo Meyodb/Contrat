@@ -590,7 +590,19 @@ class ContractController extends Controller
             $cell1->addText('M BRIAND Grégory', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell1->addText('Pour la société', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell1->addTextBreak();
-            $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            
+            // Essayer d'ajouter l'image de signature admin si elle existe
+            $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
+            if (file_exists($adminSignaturePath)) {
+                try {
+                    $cell1->addImage($adminSignaturePath, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                } catch (\Exception $e) {
+                    \Log::warning('Impossible de charger l\'image de signature admin: ' . $e->getMessage());
+                    $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                }
+            } else {
+                $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            }
             
             // Cellule pour l'espace entre les signatures
             $table->addCell(1000);
@@ -600,7 +612,23 @@ class ContractController extends Controller
             $cell2->addText('L\'employé(e)', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell2->addTextBreak();
-            $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            
+            // Essayer d'ajouter l'image de signature employé si elle existe
+            if ($contract->user_id) {
+                $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
+                if (file_exists($employeeSignaturePath)) {
+                    try {
+                        $cell2->addImage($employeeSignaturePath, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    } catch (\Exception $e) {
+                        \Log::warning('Impossible de charger l\'image de signature employé: ' . $e->getMessage());
+                        $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    }
+                } else {
+                    $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                }
+            } else {
+                $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            }
             
             // Générer un nom de fichier pour le document Word
             $filename = 'contrat_' . $contract->id . '_' . ($contract->user->name ?? 'employe') . '.docx';
@@ -762,7 +790,19 @@ class ContractController extends Controller
             $cell1->addText('M BRIAND Grégory', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell1->addText('Pour la société', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell1->addTextBreak();
-            $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            
+            // Essayer d'ajouter l'image de signature admin si elle existe
+            $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
+            if (file_exists($adminSignaturePath)) {
+                try {
+                    $cell1->addImage($adminSignaturePath, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                } catch (\Exception $e) {
+                    \Log::warning('Impossible de charger l\'image de signature admin: ' . $e->getMessage());
+                    $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                }
+            } else {
+                $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            }
             
             // Cellule pour l'espace entre les signatures
             $table->addCell(1000);
@@ -772,7 +812,23 @@ class ContractController extends Controller
             $cell2->addText('L\'employé(e)', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell2->addTextBreak();
-            $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            
+            // Essayer d'ajouter l'image de signature employé si elle existe
+            if ($contract->user_id) {
+                $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
+                if (file_exists($employeeSignaturePath)) {
+                    try {
+                        $cell2->addImage($employeeSignaturePath, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    } catch (\Exception $e) {
+                        \Log::warning('Impossible de charger l\'image de signature employé: ' . $e->getMessage());
+                        $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    }
+                } else {
+                    $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                }
+            } else {
+                $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            }
             
             // Générer un nom de fichier pour le document Word
             $filename = 'contrat_' . $contract->id . '_' . time() . '.docx';
