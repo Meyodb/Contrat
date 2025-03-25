@@ -49,7 +49,7 @@ Route::middleware(['auth', \App\Http\Middleware\AdminMiddleware::class])->name('
     Route::get('/contracts/{contract}/sign', [AdminContractController::class, 'showSignForm'])->name('contracts.sign.form');
     Route::post('/contracts/{contract}/sign', [AdminContractController::class, 'sign'])->name('contracts.sign');
     Route::post('/contracts/{contract}/reject', [AdminContractController::class, 'reject'])->name('contracts.reject');
-    Route::delete('/contracts/{contract}/bank-details', [AdminContractController::class, 'deleteBankDetails'])->name('contracts.bank-details.delete');
+    Route::delete('/contracts/{contract}/bank-details', [AdminContractController::class, 'deleteBankDetails'])->name('contracts.delete-bank-details');
     
     // Routes pour les templates - désactivées
     // Route::resource('templates', AdminTemplateController::class);
