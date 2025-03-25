@@ -493,7 +493,8 @@ class ContractController extends Controller
                 public_path('storage/' . $contract->employee_signature),
                 storage_path('app/public/' . $contract->employee_signature),
                 storage_path('app/private/private/signatures/' . $contract->user_id . '_employee.png'),
-                storage_path('app/private/public/signatures/' . $contract->user_id . '_employee.png')
+                storage_path('app/private/public/signatures/' . $contract->user_id . '_employee.png'),
+                storage_path('app/private/signatures/' . $contract->user_id . '_employee.png')
             ];
             
             // Vérifier si la signature de l'employé existe dans l'un des chemins possibles
@@ -653,7 +654,8 @@ class ContractController extends Controller
                 public_path('storage/' . $contract->employee_signature),
                 storage_path('app/public/' . $contract->employee_signature),
                 storage_path('app/private/private/signatures/' . $contract->user_id . '_employee.png'),
-                storage_path('app/private/public/signatures/' . $contract->user_id . '_employee.png')
+                storage_path('app/private/public/signatures/' . $contract->user_id . '_employee.png'),
+                storage_path('app/private/signatures/' . $contract->user_id . '_employee.png')
             ];
             
             // Vérifier si la signature de l'employé existe dans l'un des chemins possibles
