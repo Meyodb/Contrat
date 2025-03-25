@@ -95,11 +95,6 @@
                                             <i class="bi bi-file-earmark-text"></i> Contrats
                                         </a>
                                     </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link {{ Request::is('admin/templates*') ? 'active' : '' }}" href="{{ route('admin.templates.index') }}">
-                                            <i class="bi bi-file-earmark-ruled"></i> Modèles
-                                        </a>
-                                    </li>
                                 @else
                                     <li class="nav-item">
                                         <a class="nav-link" href="{{ route('employee.contracts.index') }}">Mes contrats</a>

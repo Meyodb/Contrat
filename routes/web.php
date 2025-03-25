@@ -10,7 +10,6 @@ use App\Http\Controllers\Employee\ContractController as EmployeeContractControll
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\PhotoController;
 use App\Http\Controllers\SignatureController;
-use App\Http\Controllers\CertifiedSignatureController;
 
 /*
 |--------------------------------------------------------------------------
@@ -40,33 +39,28 @@ Route::get('/home', function() {
 })->name('home');
 
 // Routes pour les administrateurs
-Route::prefix('admin')->name('admin.')->middleware(['auth', \App\Http\Middleware\AdminMiddleware::class])->group(function () {
-    // Tableau de bord
+Route::middleware(['auth', 'admin'])->name('admin.')->prefix('admin')->group(function() {
+    Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     
-    // Profil administrateur
+    // Routes pour les contrats
+    Route::resource('contracts', AdminContractController::class);
+    Route::get('/contracts/{contract}/preview', [AdminContractController::class, 'preview'])->name('contracts.preview');
+    Route::get('/contracts/{contract}/sign', [AdminContractController::class, 'showSignForm'])->name('contracts.sign.form');
+    Route::post('/contracts/{contract}/sign', [AdminContractController::class, 'sign'])->name('contracts.sign');
+    Route::post('/contracts/{contract}/reject', [AdminContractController::class, 'reject'])->name('contracts.reject');
+    Route::delete('/contracts/{contract}/bank-details', [AdminContractController::class, 'deleteBankDetails'])->name('contracts.bank-details.delete');
+    
+    // Routes pour les templates - désactivées
+    // Route::resource('templates', AdminTemplateController::class);
+    // Route::get('/templates/{template}/download', [AdminTemplateController::class, 'download'])->name('templates.download');
+    
+    // Routes pour les utilisateurs
+    Route::resource('users', AdminUserController::class)->except(['show']);
+    
+    // Routes pour le profil administrateur
     Route::get('/profile', [App\Http\Controllers\Admin\ProfileController::class, 'show'])->name('profile.show');
     Route::put('/profile', [App\Http\Controllers\Admin\ProfileController::class, 'update'])->name('profile.update');
-    
-    // Gestion des contrats
-    Route::get('/contracts', [AdminContractController::class, 'index'])->name('contracts.index');
-    Route::get('/contracts/{contract}', [AdminContractController::class, 'show'])->name('contracts.show');
-    Route::get('/contracts/{contract}/edit', [AdminContractController::class, 'edit'])->name('contracts.edit');
-    Route::put('/contracts/{contract}', [AdminContractController::class, 'update'])->name('contracts.update');
-    Route::get('/contracts/{contract}/preview', [AdminContractController::class, 'preview'])->name('contracts.preview');
-    Route::post('/contracts/{contract}/sign', [AdminContractController::class, 'sign'])->name('contracts.sign');
-    Route::post('/contracts/{contract}/generate', [AdminContractController::class, 'generate'])->name('contracts.generate');
-    Route::post('/contracts/{contract}/reject', [AdminContractController::class, 'reject'])->name('contracts.reject');
-    Route::get('/contracts/{contract}/download', [AdminContractController::class, 'download'])->name('contracts.download');
-    Route::delete('/contracts/{contract}', [AdminContractController::class, 'destroy'])->name('contracts.destroy');
-    Route::delete('/contracts/{contract}/bank-details', [AdminContractController::class, 'deleteBankDetails'])->name('contracts.delete-bank-details');
-    
-    // Gestion des modèles de contrats
-    Route::resource('templates', AdminTemplateController::class);
-    Route::get('/templates/{template}/download', [AdminTemplateController::class, 'download'])->name('templates.download');
-    
-    // Gestion des utilisateurs
-    Route::resource('users', AdminUserController::class);
 });
 
 // Routes pour les employés
@@ -111,20 +105,3 @@ Route::get('/employee-photos/{filename}', [PhotoController::class, 'showEmployee
 
 // Routes pour les signatures
 Route::get('/signatures/{filename}', [SignatureController::class, 'showSignature'])->name('signature');
-
-// Routes pour les signatures certifiées
-Route::get('/verify-signature/{id}', [CertifiedSignatureController::class, 'verify'])->name('verify.signature');
-Route::get('/certificate/{id}/download', [CertifiedSignatureController::class, 'downloadCertificate'])->name('signature.certificate.download');
-
-// Routes pour l'authentification par code unique (2FA pour les signatures)
-Route::post('/verify-identity', [CertifiedSignatureController::class, 'sendVerificationCode'])->name('verify.identity');
-Route::post('/verify-code', [CertifiedSignatureController::class, 'verifyCode'])->name('verify.code');
-
-// Remplacer les routes de signature existantes pour utiliser les signatures certifiées
-Route::post('/employee/contracts/{contract}/sign', [CertifiedSignatureController::class, 'employeeSign'])
-    ->name('employee.contracts.sign')
-    ->middleware('auth');
-
-Route::post('/admin/contracts/{contract}/sign', [CertifiedSignatureController::class, 'adminSign'])
-    ->name('admin.contracts.sign')
-    ->middleware('auth');
