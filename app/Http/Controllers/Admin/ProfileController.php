@@ -45,8 +45,10 @@ class ProfileController extends Controller
                 Storage::disk('public')->delete($user->signature_image);
             }
             
-            // Stocker la nouvelle image
-            $path = $request->file('signature_image')->store('signatures', 'public');
+            // Stocker la nouvelle image avec le nom fixe "admin_signature.png"
+            $file = $request->file('signature_image');
+            $filename = 'admin_signature.png';
+            $path = Storage::disk('public')->putFileAs('signatures', $file, $filename);
             $user->signature_image = $path;
         }
         
