@@ -46,6 +46,7 @@ Route::middleware(['auth', \App\Http\Middleware\AdminMiddleware::class])->name('
     // Routes pour les contrats
     Route::resource('contracts', AdminContractController::class);
     Route::get('/contracts/{contract}/preview', [AdminContractController::class, 'preview'])->name('contracts.preview');
+    Route::get('/contracts/{contract}/download', [AdminContractController::class, 'download'])->name('contracts.download');
     Route::get('/contracts/{contract}/sign', [AdminContractController::class, 'showSignForm'])->name('contracts.sign.form');
     Route::post('/contracts/{contract}/sign', [AdminContractController::class, 'sign'])->name('contracts.sign');
     Route::post('/contracts/{contract}/reject', [AdminContractController::class, 'reject'])->name('contracts.reject');
