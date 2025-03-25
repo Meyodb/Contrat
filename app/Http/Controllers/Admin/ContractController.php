@@ -485,6 +485,19 @@ class ContractController extends Controller
                 return redirect()->back()->with('error', 'Données du contrat non trouvées.');
             }
             
+            // Vérifier si les signatures existent
+            $adminSignatureExists = $contract->admin_signature && file_exists(public_path('storage/' . $contract->admin_signature));
+            $employeeSignatureExists = $contract->employee_signature && file_exists(public_path('storage/' . $contract->employee_signature));
+            
+            // Log pour débogage
+            \Log::info('Téléchargement du contrat #' . $contract->id, [
+                'status' => $contract->status,
+                'admin_signature' => $contract->admin_signature,
+                'employee_signature' => $contract->employee_signature,
+                'admin_signature_exists' => $adminSignatureExists,
+                'employee_signature_exists' => $employeeSignatureExists
+            ]);
+            
             // Préparer les données pour le template
             $data = $contractData;
             
@@ -506,8 +519,8 @@ class ContractController extends Controller
             $html = view('pdf.cdi-template', [
                 'data' => $data, 
                 'contract' => $contract,
-                'admin_signature' => $contract->admin_signature,
-                'employee_signature' => $contract->employee_signature
+                'admin_signature' => $adminSignatureExists ? $contract->admin_signature : null,
+                'employee_signature' => $employeeSignatureExists ? $contract->employee_signature : null
             ])->render();
             
             // Activer le débogage pour voir les erreurs
@@ -619,13 +632,28 @@ class ContractController extends Controller
         $admin = auth()->user();
         
         try {
+            // Vérifier si les signatures existent
+            $adminSignatureExists = $contract->admin_signature && file_exists(public_path('storage/' . $contract->admin_signature));
+            $employeeSignatureExists = $contract->employee_signature && file_exists(public_path('storage/' . $contract->employee_signature));
+            
             // Utiliser le template Blade pour générer le PDF
             $contractData = [
                 'contract' => $contract,
                 'user' => $contract->user,
                 'admin' => $admin,
-                'data' => $data
+                'data' => $data,
+                'admin_signature' => $adminSignatureExists ? $contract->admin_signature : null,
+                'employee_signature' => $employeeSignatureExists ? $contract->employee_signature : null
             ];
+            
+            // Log des informations pour le débogage
+            \Log::info('Prévisualisation du contrat #' . $contract->id, [
+                'status' => $contract->status,
+                'admin_signature' => $contract->admin_signature,
+                'employee_signature' => $contract->employee_signature,
+                'admin_signature_exists' => $adminSignatureExists,
+                'employee_signature_exists' => $employeeSignatureExists
+            ]);
             
             // Utiliser spécifiquement le template cdi-template comme dans l'espace employé
             $html = view('pdf.cdi-template', $contractData)->render();
@@ -650,6 +678,7 @@ class ContractController extends Controller
                 ->header('Content-Disposition', 'inline; filename="' . $filename . '"');
         } catch (\Exception $e) {
             // En cas d'erreur, rediriger avec un message d'erreur
+            \Log::error('Erreur prévisualisation PDF: ' . $e->getMessage());
             return back()->with('error', 'Erreur lors de la génération du PDF: ' . $e->getMessage());
         }
     }
