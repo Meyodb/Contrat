@@ -208,7 +208,7 @@
                         <p style="margin-bottom: 10px;"><strong>L'employeur</strong></p>
                         <p>M BRIAND Grégory</p>
                         <p>Pour la société</p>
-                        @if(isset($contract) && $contract->status === 'signed' && file_exists(storage_path('app/public/signatures/admin_signature.png')))
+                        @if(isset($contract) && ($contract->status === 'signed' || $contract->status === 'completed' || $contract->status === 'employee_signed' || $contract->status === 'admin_signed') && file_exists(storage_path('app/public/signatures/admin_signature.png')))
                         <img src="file://{{storage_path('app/public/signatures/admin_signature.png')}}" alt="Signature de l'employeur" style="max-height: 100px;">
                         @endif
                         
@@ -224,7 +224,7 @@
                         <p style="margin-bottom: 10px;"><strong>L'employé(e)</strong></p>
                         <p>{{ $data->first_name ?? '' }} {{ $data->last_name ?? '' }}</p>
                         <p>&nbsp;</p>
-                        @if(isset($contract) && $contract->status === 'signed' && isset($employee_signature) && $employee_signature)
+                        @if(isset($contract) && ($contract->status === 'signed' || $contract->status === 'completed' || $contract->status === 'employee_signed') && isset($employee_signature))
                         <img src="{{ $employee_signature }}" alt="Signature de l'employé" style="max-height: 100px;">
                         @endif
                         
@@ -251,8 +251,8 @@
         <p>Cordialement</p>
         
         <div style="height: 60px; margin-top: 20px; position: relative;">
-            @if(isset($contract) && $contract->status === 'signed' && $employee_signature && file_exists(storage_path('app/public/'.$employee_signature)))
-                <img src="file://{{storage_path('app/public/'.$employee_signature)}}" alt="Signature de l'employé" style="max-height: 100px;">
+            @if(isset($contract) && ($contract->status === 'signed' || $contract->status === 'completed' || $contract->status === 'employee_signed') && isset($employee_signature))
+                <img src="{{ $employee_signature }}" alt="Signature de l'employé" style="max-height: 100px;">
             @endif
         </div>
     </div>  
