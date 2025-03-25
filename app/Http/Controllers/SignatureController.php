@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\File;
 
 class SignatureController extends Controller
 {
@@ -25,15 +26,26 @@ class SignatureController extends Controller
         $possiblePaths = [
             // Si le fichier est directement dans signatures/
             'public/signatures/' . $filename,
+            // Si le fichier est dans signatures/ mais sans le préfixe public
+            'signatures/' . $filename,
+            // Si c'est le fichier de signature admin fixe
+            'public/signatures/admin_signature.png',
             // Si le fichier est référencé par le chemin complet
             $filename,
-            // Si le fichier est référencé juste par le nom de fichier
-            'public/' . $filename,
-            // Si le fichier est dans private/signatures/
-            'private/signatures/' . $filename
         ];
         
         $path = null;
+        
+        // Log tous les chemins possibles pour le débogage
+        Log::info('Chemins de recherche pour la signature:', $possiblePaths);
+        
+        // Vérifier également le chemin physique
+        $publicPath = public_path('storage/signatures/' . $filename);
+        Log::info('Vérification du chemin physique: ' . $publicPath);
+        if (File::exists($publicPath)) {
+            Log::info('Le fichier existe au chemin physique');
+            return response()->file($publicPath);
+        }
         
         foreach ($possiblePaths as $possiblePath) {
             if (Storage::exists($possiblePath)) {
@@ -45,6 +57,16 @@ class SignatureController extends Controller
         
         if (!$path) {
             Log::error('Signature non trouvée dans aucun des chemins testés. Fichier recherché: ' . $filename);
+            
+            // Dernière tentative - vérifier si le fichier existe directement dans le système de fichiers
+            $storagePath = Storage::path('public/signatures/' . $filename);
+            Log::info('Tentative avec le chemin complet du système: ' . $storagePath);
+            
+            if (File::exists($storagePath)) {
+                Log::info('Fichier trouvé via chemin système');
+                return response()->file($storagePath);
+            }
+            
             abort(404, 'Signature non trouvée');
         }
         
