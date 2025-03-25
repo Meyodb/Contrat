@@ -198,7 +198,7 @@
     <div class="footer">
         <p>Fait en double exemplaire originaux dont un pour chacune des parties.</p>
         
-        <p>A Paris, le {{ $data->contract_start_date ? date('d/m/Y', strtotime($data->contract_start_date)) : '___________' }}</p>
+        <p>A Paris, le {{ (is_object($data) && isset($data->contract_start_date)) ? date('d/m/Y', strtotime($data->contract_start_date)) : '___________' }}</p>
         
         <!-- Signatures -->
         <div style="margin-top: 80px; margin-bottom: 20px;">
@@ -216,8 +216,8 @@
                                 $imgPath = storage_path('app/public/' . $admin_signature);
                                 if (file_exists($imgPath)) {
                                     $type = pathinfo($imgPath, PATHINFO_EXTENSION);
-                                    $data = file_get_contents($imgPath);
-                                    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
+                                    $imgData = file_get_contents($imgPath);
+                                    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($imgData);
                                     echo '<img src="'.$base64.'" alt="Signature de l\'employeur" style="max-height: 90px; max-width: 190px;" />';
                                 } else {
                                     echo '<div style="width:100%; height:100%;"></div>';
@@ -239,8 +239,8 @@
                                 $imgPath = storage_path('app/public/' . $employee_signature);
                                 if (file_exists($imgPath)) {
                                     $type = pathinfo($imgPath, PATHINFO_EXTENSION);
-                                    $data = file_get_contents($imgPath);
-                                    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
+                                    $imgData = file_get_contents($imgPath);
+                                    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($imgData);
                                     echo '<img src="'.$base64.'" alt="Signature de l\'employé" style="max-height: 90px; max-width: 190px;" />';
                                 } else {
                                     echo '<div style="width:100%; height:100%;"></div>';
@@ -260,9 +260,9 @@
     <div style="page-break-before: always;"></div>
 
     <div class="addendum" style="border-top: none; margin-top: 50px;">
-        <p>Paris le {{ $data->contract_start_date ? date('d/m/Y', strtotime($data->contract_start_date)) : '___________' }}</p>
+        <p>Paris le {{ (is_object($data) && isset($data->contract_start_date)) ? date('d/m/Y', strtotime($data->contract_start_date)) : '___________' }}</p>
 
-        <p>Je soussigné, {{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }}, né(e) le {{ $data->birth_date ? date('d/m/Y', strtotime($data->birth_date)) : '___________' }} à {{ $data->birth_place ?? '___________' }} souhaite ne solliciter un poste que de {{ $data->weekly_hours ?? '___________' }} semaine au sein de la société Whatever, pour le moment.</p>
+        <p>Je soussigné, {{ (is_object($data) && isset($data->gender) && $data->gender == 'M') ? 'Monsieur' : 'Madame' }} {{ (is_object($data) && isset($data->last_name)) ? $data->last_name : '___________' }} {{ (is_object($data) && isset($data->first_name)) ? $data->first_name : '___________' }}, né(e) le {{ (is_object($data) && isset($data->birth_date)) ? date('d/m/Y', strtotime($data->birth_date)) : '___________' }} à {{ (is_object($data) && isset($data->birth_place)) ? $data->birth_place : '___________' }} souhaite ne solliciter un poste que de {{ (is_object($data) && isset($data->weekly_hours)) ? $data->weekly_hours : '___________' }} semaine au sein de la société Whatever, pour le moment.</p>
 
         <p>Cordialement</p>
         
@@ -273,8 +273,8 @@
                     $imgPath = storage_path('app/public/' . $employee_signature);
                     if (file_exists($imgPath)) {
                         $type = pathinfo($imgPath, PATHINFO_EXTENSION);
-                        $data = file_get_contents($imgPath);
-                        $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
+                        $imgData = file_get_contents($imgPath);
+                        $base64 = 'data:image/' . $type . ';base64,' . base64_encode($imgData);
                         echo '<img src="'.$base64.'" alt="Signature de l\'employé" style="max-height: 90px; max-width: 190px;" />';
                     } else {
                         echo '<div style="width:100%; height:100%;"></div>';
