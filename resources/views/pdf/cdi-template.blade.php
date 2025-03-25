@@ -208,8 +208,10 @@
                         <p style="margin-bottom: 10px;"><strong>L'employeur</strong></p>
                         <p>M BRIAND Grégory</p>
                         <p>Pour la société</p>
-                        @if(isset($contract) && ($contract->status === 'admin_signed' || $contract->status === 'completed' || $contract->status === 'employee_signed') && $contract->admin_signature)
-                            <img src="{{ public_path('storage/' . $contract->admin_signature) }}" alt="Signature de l'employeur" style="max-height: 100px;">
+                        <p>{{ $admin->name ?? 'L\'administrateur' }}</p>
+                        <p>&nbsp;</p>
+                        @if(isset($admin_signature))
+                            <img src="{{ public_path('storage/' . $admin_signature) }}" alt="Signature de l'employeur" style="max-height: 100px;">
                         @endif
                         
                         @if(isset($contract) && $contract->admin_signature_id && file_exists(storage_path('app/public/signatures/qrcodes/' . $contract->admin_signature_id . '.png')))
@@ -224,8 +226,8 @@
                         <p style="margin-bottom: 10px;"><strong>L'employé(e)</strong></p>
                         <p>{{ $data->first_name ?? '' }} {{ $data->last_name ?? '' }}</p>
                         <p>&nbsp;</p>
-                        @if(isset($contract) && ($contract->status === 'employee_signed' || $contract->status === 'completed') && $contract->employee_signature)
-                            <img src="{{ public_path('storage/' . $contract->employee_signature) }}" alt="Signature de l'employé" style="max-height: 100px;">
+                        @if(isset($employee_signature))
+                            <img src="{{ public_path('storage/' . $employee_signature) }}" alt="Signature de l'employé" style="max-height: 100px;">
                         @endif
                         
                         @if(isset($contract) && $contract->signature_id && file_exists(storage_path('app/public/signatures/qrcodes/' . $contract->signature_id . '.png')))
@@ -251,8 +253,8 @@
         <p>Cordialement</p>
         
         <div style="height: 60px; margin-top: 20px; position: relative;">
-            @if(isset($contract) && ($contract->status === 'employee_signed' || $contract->status === 'completed') && $contract->employee_signature)
-                <img src="{{ public_path('storage/' . $contract->employee_signature) }}" alt="Signature de l'employé" style="max-height: 100px;">
+            @if(isset($employee_signature))
+                <img src="{{ public_path('storage/' . $employee_signature) }}" alt="Signature de l'employé" style="max-height: 100px;">
             @endif
         </div>
     </div>  
