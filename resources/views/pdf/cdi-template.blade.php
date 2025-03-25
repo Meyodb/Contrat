@@ -211,18 +211,8 @@
                         <p>{{ $admin->name ?? 'L\'administrateur' }}</p>
                         <p>&nbsp;</p>
                         @if(isset($admin_signature))
-                            <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block;">
-                            <?php
-                                $imgPath = storage_path('app/public/' . $admin_signature);
-                                if (file_exists($imgPath)) {
-                                    $type = pathinfo($imgPath, PATHINFO_EXTENSION);
-                                    $imgData = file_get_contents($imgPath);
-                                    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($imgData);
-                                    echo '<img src="'.$base64.'" alt="Signature de l\'employeur" style="max-height: 90px; max-width: 190px;" />';
-                                } else {
-                                    echo '<div style="width:100%; height:100%;"></div>';
-                                }
-                            ?>
+                            <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block; text-align:center;">
+                                Signature de l'employeur
                             </div>
                         @else
                             <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block;"></div>
@@ -234,18 +224,8 @@
                         <p>{{ $data->first_name ?? '' }} {{ $data->last_name ?? '' }}</p>
                         <p>&nbsp;</p>
                         @if(isset($employee_signature))
-                            <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block;">
-                            <?php
-                                $imgPath = storage_path('app/public/' . $employee_signature);
-                                if (file_exists($imgPath)) {
-                                    $type = pathinfo($imgPath, PATHINFO_EXTENSION);
-                                    $imgData = file_get_contents($imgPath);
-                                    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($imgData);
-                                    echo '<img src="'.$base64.'" alt="Signature de l\'employé" style="max-height: 90px; max-width: 190px;" />';
-                                } else {
-                                    echo '<div style="width:100%; height:100%;"></div>';
-                                }
-                            ?>
+                            <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block; text-align:center;">
+                                Signature de l'employé
                             </div>
                         @else
                             <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block;"></div>
@@ -268,18 +248,8 @@
         
         <div style="height: 60px; margin-top: 20px; position: relative;">
             @if(isset($employee_signature))
-                <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block;">
-                <?php
-                    $imgPath = storage_path('app/public/' . $employee_signature);
-                    if (file_exists($imgPath)) {
-                        $type = pathinfo($imgPath, PATHINFO_EXTENSION);
-                        $imgData = file_get_contents($imgPath);
-                        $base64 = 'data:image/' . $type . ';base64,' . base64_encode($imgData);
-                        echo '<img src="'.$base64.'" alt="Signature de l\'employé" style="max-height: 90px; max-width: 190px;" />';
-                    } else {
-                        echo '<div style="width:100%; height:100%;"></div>';
-                    }
-                ?>
+                <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block; text-align:center;">
+                    Signature de l'employé
                 </div>
             @else
                 <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block;"></div>
