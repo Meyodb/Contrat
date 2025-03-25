@@ -27,23 +27,13 @@
                         <p>La liste des contrats a été désactivée dans cette interface. Veuillez accéder directement aux contrats via leur URL spécifique ou utiliser les outils d'administration avancés.</p>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-6 mb-4">
+                    <div class="row justify-content-center">
+                        <div class="col-md-8 mb-4">
                             <div class="card h-100">
-                                <div class="card-body">
-                                    <h5 class="card-title"><i class="bi bi-file-earmark-text me-2"></i>Modèles de contrats</h5>
-                                    <p class="card-text">Gérez les modèles de contrats disponibles pour les employés.</p>
-                                    <a href="{{ route('admin.templates.index') }}" class="btn btn-outline-primary">Gérer les modèles</a>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-6 mb-4">
-                            <div class="card h-100">
-                                <div class="card-body">
+                                <div class="card-body text-center">
                                     <h5 class="card-title"><i class="bi bi-people me-2"></i>Gestion des utilisateurs</h5>
-                                    <p class="card-text">Gérez les comptes utilisateurs et leurs permissions.</p>
-                                    <a href="{{ route('admin.users.index') }}" class="btn btn-outline-primary">Gérer les utilisateurs</a>
+                                    <p class="card-text">Gérez les comptes utilisateurs et leurs permissions dans le système.</p>
+                                    <a href="{{ route('admin.users.index') }}" class="btn btn-primary">Gérer les utilisateurs</a>
                                 </div>
                             </div>
                         </div>
