@@ -595,9 +595,20 @@ class ContractController extends Controller
             $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
             if (file_exists($adminSignaturePath)) {
                 try {
-                    $cell1->addImage($adminSignaturePath, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    // Encoder l'image en base64
+                    $imageData = file_get_contents($adminSignaturePath);
+                    if ($imageData !== false) {
+                        $base64Image = base64_encode($imageData);
+                        $tempFile = tempnam(sys_get_temp_dir(), 'signature_admin');
+                        file_put_contents($tempFile, $imageData);
+                        $cell1->addImage($tempFile, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                        unlink($tempFile); // Supprimer le fichier temporaire
+                    } else {
+                        \Log::warning('Impossible de lire l\'image de signature admin');
+                        $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    }
                 } catch (\Exception $e) {
-                    \Log::warning('Impossible de charger l\'image de signature admin: ' . $e->getMessage());
+                    \Log::warning('Impossible de traiter l\'image de signature admin: ' . $e->getMessage());
                     $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
                 }
             } else {
@@ -618,9 +629,19 @@ class ContractController extends Controller
                 $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
                 if (file_exists($employeeSignaturePath)) {
                     try {
-                        $cell2->addImage($employeeSignaturePath, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                        // Encoder l'image en base64
+                        $imageData = file_get_contents($employeeSignaturePath);
+                        if ($imageData !== false) {
+                            $tempFile = tempnam(sys_get_temp_dir(), 'signature_employee');
+                            file_put_contents($tempFile, $imageData);
+                            $cell2->addImage($tempFile, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                            unlink($tempFile); // Supprimer le fichier temporaire
+                        } else {
+                            \Log::warning('Impossible de lire l\'image de signature employé');
+                            $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                        }
                     } catch (\Exception $e) {
-                        \Log::warning('Impossible de charger l\'image de signature employé: ' . $e->getMessage());
+                        \Log::warning('Impossible de traiter l\'image de signature employé: ' . $e->getMessage());
                         $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
                     }
                 } else {
@@ -795,9 +816,20 @@ class ContractController extends Controller
             $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
             if (file_exists($adminSignaturePath)) {
                 try {
-                    $cell1->addImage($adminSignaturePath, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    // Encoder l'image en base64
+                    $imageData = file_get_contents($adminSignaturePath);
+                    if ($imageData !== false) {
+                        $base64Image = base64_encode($imageData);
+                        $tempFile = tempnam(sys_get_temp_dir(), 'signature_admin');
+                        file_put_contents($tempFile, $imageData);
+                        $cell1->addImage($tempFile, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                        unlink($tempFile); // Supprimer le fichier temporaire
+                    } else {
+                        \Log::warning('Impossible de lire l\'image de signature admin');
+                        $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    }
                 } catch (\Exception $e) {
-                    \Log::warning('Impossible de charger l\'image de signature admin: ' . $e->getMessage());
+                    \Log::warning('Impossible de traiter l\'image de signature admin: ' . $e->getMessage());
                     $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
                 }
             } else {
@@ -818,9 +850,19 @@ class ContractController extends Controller
                 $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
                 if (file_exists($employeeSignaturePath)) {
                     try {
-                        $cell2->addImage($employeeSignaturePath, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                        // Encoder l'image en base64
+                        $imageData = file_get_contents($employeeSignaturePath);
+                        if ($imageData !== false) {
+                            $tempFile = tempnam(sys_get_temp_dir(), 'signature_employee');
+                            file_put_contents($tempFile, $imageData);
+                            $cell2->addImage($tempFile, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                            unlink($tempFile); // Supprimer le fichier temporaire
+                        } else {
+                            \Log::warning('Impossible de lire l\'image de signature employé');
+                            $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                        }
                     } catch (\Exception $e) {
-                        \Log::warning('Impossible de charger l\'image de signature employé: ' . $e->getMessage());
+                        \Log::warning('Impossible de traiter l\'image de signature employé: ' . $e->getMessage());
                         $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
                     }
                 } else {
