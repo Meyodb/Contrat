@@ -590,29 +590,13 @@ class ContractController extends Controller
             $cell1->addText('M BRIAND Grégory', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell1->addText('Pour la société', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell1->addTextBreak();
-            
-            // Essayer d'ajouter l'image de signature admin si elle existe
-            $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
-            if (file_exists($adminSignaturePath)) {
-                try {
-                    // Encoder l'image en base64
-                    $imageData = file_get_contents($adminSignaturePath);
-                    if ($imageData !== false) {
-                        $base64Image = base64_encode($imageData);
-                        $tempFile = tempnam(sys_get_temp_dir(), 'signature_admin');
-                        file_put_contents($tempFile, $imageData);
-                        $cell1->addImage($tempFile, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                        unlink($tempFile); // Supprimer le fichier temporaire
-                    } else {
-                        \Log::warning('Impossible de lire l\'image de signature admin');
-                        $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                    }
-                } catch (\Exception $e) {
-                    \Log::warning('Impossible de traiter l\'image de signature admin: ' . $e->getMessage());
-                    $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                }
-            } else {
-                $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+
+            // Signature textuelle pour l'employeur (remplace l'image)
+            $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $cell1->addText('Grégory BRIAND', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $cell1->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            if ($contract->admin_signed_at) {
+                $cell1->addText('Signé le ' . date('d/m/Y à H:i', strtotime($contract->admin_signed_at)), ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             }
             
             // Cellule pour l'espace entre les signatures
@@ -624,31 +608,14 @@ class ContractController extends Controller
             $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell2->addTextBreak();
             
-            // Essayer d'ajouter l'image de signature employé si elle existe
-            if ($contract->user_id) {
-                $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
-                if (file_exists($employeeSignaturePath)) {
-                    try {
-                        // Encoder l'image en base64
-                        $imageData = file_get_contents($employeeSignaturePath);
-                        if ($imageData !== false) {
-                            $tempFile = tempnam(sys_get_temp_dir(), 'signature_employee');
-                            file_put_contents($tempFile, $imageData);
-                            $cell2->addImage($tempFile, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                            unlink($tempFile); // Supprimer le fichier temporaire
-                        } else {
-                            \Log::warning('Impossible de lire l\'image de signature employé');
-                            $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                        }
-                    } catch (\Exception $e) {
-                        \Log::warning('Impossible de traiter l\'image de signature employé: ' . $e->getMessage());
-                        $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                    }
-                } else {
-                    $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                }
+            // Signature textuelle pour l'employé (remplace l'image)
+            if ($contract->employee_signed_at) {
+                $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText('Signé le ' . date('d/m/Y à H:i', strtotime($contract->employee_signed_at)), ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             } else {
-                $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             }
             
             // Générer un nom de fichier pour le document Word
@@ -811,29 +778,13 @@ class ContractController extends Controller
             $cell1->addText('M BRIAND Grégory', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell1->addText('Pour la société', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell1->addTextBreak();
-            
-            // Essayer d'ajouter l'image de signature admin si elle existe
-            $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
-            if (file_exists($adminSignaturePath)) {
-                try {
-                    // Encoder l'image en base64
-                    $imageData = file_get_contents($adminSignaturePath);
-                    if ($imageData !== false) {
-                        $base64Image = base64_encode($imageData);
-                        $tempFile = tempnam(sys_get_temp_dir(), 'signature_admin');
-                        file_put_contents($tempFile, $imageData);
-                        $cell1->addImage($tempFile, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                        unlink($tempFile); // Supprimer le fichier temporaire
-                    } else {
-                        \Log::warning('Impossible de lire l\'image de signature admin');
-                        $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                    }
-                } catch (\Exception $e) {
-                    \Log::warning('Impossible de traiter l\'image de signature admin: ' . $e->getMessage());
-                    $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                }
-            } else {
-                $cell1->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+
+            // Signature textuelle pour l'employeur (remplace l'image)
+            $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $cell1->addText('Grégory BRIAND', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $cell1->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            if ($contract->admin_signed_at) {
+                $cell1->addText('Signé le ' . date('d/m/Y à H:i', strtotime($contract->admin_signed_at)), ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             }
             
             // Cellule pour l'espace entre les signatures
@@ -845,31 +796,14 @@ class ContractController extends Controller
             $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell2->addTextBreak();
             
-            // Essayer d'ajouter l'image de signature employé si elle existe
-            if ($contract->user_id) {
-                $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
-                if (file_exists($employeeSignaturePath)) {
-                    try {
-                        // Encoder l'image en base64
-                        $imageData = file_get_contents($employeeSignaturePath);
-                        if ($imageData !== false) {
-                            $tempFile = tempnam(sys_get_temp_dir(), 'signature_employee');
-                            file_put_contents($tempFile, $imageData);
-                            $cell2->addImage($tempFile, ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                            unlink($tempFile); // Supprimer le fichier temporaire
-                        } else {
-                            \Log::warning('Impossible de lire l\'image de signature employé');
-                            $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                        }
-                    } catch (\Exception $e) {
-                        \Log::warning('Impossible de traiter l\'image de signature employé: ' . $e->getMessage());
-                        $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                    }
-                } else {
-                    $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                }
+            // Signature textuelle pour l'employé (remplace l'image)
+            if ($contract->employee_signed_at) {
+                $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText('Signé le ' . date('d/m/Y à H:i', strtotime($contract->employee_signed_at)), ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             } else {
-                $cell2->addText('________________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             }
             
             // Générer un nom de fichier pour le document Word
