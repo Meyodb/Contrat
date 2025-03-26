@@ -744,8 +744,65 @@ class ContractController extends Controller
             $section->addText("Cordialement", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
             $section->addTextBreak(2);
             
-            // Ajouter un espace pour une signature additionnelle
-            $section->addText("Signature de l'employé", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+            // Ajouter un espace pour la signature finale de l'employé
+            // Vérifier si l'employé a une signature
+            if ($contract->employee_signed_at && $contract->user_id) {
+                $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
+                if (file_exists($employeeSignaturePath)) {
+                    try {
+                        $tempDir = sys_get_temp_dir();
+                        $tempImagePath = $tempDir . '/employee_signature_final_' . time() . '.png';
+                        copy($employeeSignaturePath, $tempImagePath);
+                        
+                        $section->addImage(
+                            $tempImagePath,
+                            ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]
+                        );
+                    } catch (\Exception $e) {
+                        \Log::error('Erreur lors de l\'ajout de l\'image de signature employé finale: ' . $e->getMessage());
+                        $section->addText("Signature de l'employé", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                        $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                    }
+                } else {
+                    $section->addText("Signature de l'employé", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                    $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                }
+            } else {
+                $section->addText("Signature de l'employé", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+            }
+            
+            // Ajouter la signature de l'employeur sur la même page
+            $section->addTextBreak(2);
+            $section->addText("Pour validation par l'employeur:", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+            $section->addTextBreak();
+            
+            // Vérifier si l'administrateur a une signature
+            $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
+            if (file_exists($adminSignaturePath)) {
+                try {
+                    $tempDir = sys_get_temp_dir();
+                    $tempImagePath = $tempDir . '/admin_signature_final_' . time() . '.png';
+                    copy($adminSignaturePath, $tempImagePath);
+                    
+                    $section->addImage(
+                        $tempImagePath,
+                        ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]
+                    );
+                    
+                    if ($contract->admin_signed_at) {
+                        $section->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->admin_signed_at)), 
+                            ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Erreur lors de l\'ajout de l\'image de signature admin finale: ' . $e->getMessage());
+                    $section->addText("Signature de l'employeur", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                    $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                }
+            } else {
+                $section->addText("Signature de l'employeur", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+            }
             
             // Générer un nom de fichier pour le document Word
             $filename = 'contrat_' . $contract->id . '_' . ($contract->user->name ?? 'employe') . '.docx';
@@ -1078,8 +1135,65 @@ class ContractController extends Controller
             $section->addText("Cordialement", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
             $section->addTextBreak(2);
             
-            // Ajouter un espace pour une signature additionnelle
-            $section->addText("Signature de l'employé", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+            // Ajouter un espace pour la signature finale de l'employé
+            // Vérifier si l'employé a une signature
+            if ($contract->employee_signed_at && $contract->user_id) {
+                $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
+                if (file_exists($employeeSignaturePath)) {
+                    try {
+                        $tempDir = sys_get_temp_dir();
+                        $tempImagePath = $tempDir . '/employee_signature_final_' . time() . '.png';
+                        copy($employeeSignaturePath, $tempImagePath);
+                        
+                        $section->addImage(
+                            $tempImagePath,
+                            ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]
+                        );
+                    } catch (\Exception $e) {
+                        \Log::error('Erreur lors de l\'ajout de l\'image de signature employé finale: ' . $e->getMessage());
+                        $section->addText("Signature de l'employé", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                        $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                    }
+                } else {
+                    $section->addText("Signature de l'employé", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                    $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                }
+            } else {
+                $section->addText("Signature de l'employé", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+            }
+            
+            // Ajouter la signature de l'employeur sur la même page
+            $section->addTextBreak(2);
+            $section->addText("Pour validation par l'employeur:", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+            $section->addTextBreak();
+            
+            // Vérifier si l'administrateur a une signature
+            $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
+            if (file_exists($adminSignaturePath)) {
+                try {
+                    $tempDir = sys_get_temp_dir();
+                    $tempImagePath = $tempDir . '/admin_signature_final_' . time() . '.png';
+                    copy($adminSignaturePath, $tempImagePath);
+                    
+                    $section->addImage(
+                        $tempImagePath,
+                        ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]
+                    );
+                    
+                    if ($contract->admin_signed_at) {
+                        $section->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->admin_signed_at)), 
+                            ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Erreur lors de l\'ajout de l\'image de signature admin finale: ' . $e->getMessage());
+                    $section->addText("Signature de l'employeur", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                    $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                }
+            } else {
+                $section->addText("Signature de l'employeur", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+                $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
+            }
             
             // Générer un nom de fichier pour le document Word
             $filename = 'contrat_' . $contract->id . '_' . time() . '.docx';
