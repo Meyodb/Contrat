@@ -617,23 +617,38 @@ class ContractController extends Controller
             $cell1->addText('L\'employeur', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell1->addText('M BRIAND Grégory', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell1->addText('Pour la société', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $cell1->addTextBreak();
             
-            // Créer un arrière-plan gris foncé pour la signature de l'administrateur
-            $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
-                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            
-            $cell1->addText('Grégory BRIAND', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            
-            // Ajouter la date de signature
-            if ($contract->admin_signed_at) {
-                $cell1->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->admin_signed_at)), 
-                    ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            // Insérer l'image de signature de l'administrateur
+            $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
+            if (file_exists($adminSignaturePath)) {
+                try {
+                    $tempDir = sys_get_temp_dir();
+                    $tempImagePath = $tempDir . '/admin_signature_' . time() . '.png';
+                    copy($adminSignaturePath, $tempImagePath);
+                    
+                    $cell1->addImage(
+                        $tempImagePath,
+                        ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
+                    );
+                    
+                    // Si la signature a une date
+                    if ($contract->admin_signed_at) {
+                        $cell1->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->admin_signed_at)), 
+                            ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Erreur lors de l\'ajout de l\'image de signature admin: ' . $e->getMessage());
+                    // Fallback à la version texte
+                    $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
+                        ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    $cell1->addText('Grégory BRIAND', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                }
+            } else {
+                // Fallback si l'image n'existe pas
+                $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
+                    ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell1->addText('Grégory BRIAND', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             }
-            
-            // Ajouter le symbole de vérification
-            $cell1->addText('✓ Signature valide', ['color' => '008800', 'size' => 8], 
-                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             
             // Cellule pour l'espace entre les signatures
             $table->addCell(1000);
@@ -642,24 +657,40 @@ class ContractController extends Controller
             $cell2 = $table->addCell(4000, ['valign' => 'center']);
             $cell2->addText('L\'employé(e)', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $cell2->addTextBreak();
             
             // Si l'employé a signé
-            if ($contract->employee_signed_at) {
-                // Créer un arrière-plan gris foncé pour la signature de l'employé
-                $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
-                    ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                
-                $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), 
-                    ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                
-                // Ajouter la date de signature
-                $cell2->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->employee_signed_at)), 
-                    ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                
-                // Ajouter le symbole de vérification
-                $cell2->addText('✓ Signature valide', ['color' => '008800', 'size' => 8], 
-                    ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            if ($contract->employee_signed_at && $contract->user_id) {
+                // Chercher l'image de signature de l'employé
+                $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
+                if (file_exists($employeeSignaturePath)) {
+                    try {
+                        $tempDir = sys_get_temp_dir();
+                        $tempImagePath = $tempDir . '/employee_signature_' . time() . '.png';
+                        copy($employeeSignaturePath, $tempImagePath);
+                        
+                        $cell2->addImage(
+                            $tempImagePath,
+                            ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
+                        );
+                        
+                        // Ajouter la date de signature
+                        $cell2->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->employee_signed_at)), 
+                            ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    } catch (\Exception $e) {
+                        \Log::error('Erreur lors de l\'ajout de l\'image de signature employé: ' . $e->getMessage());
+                        // Fallback à la version texte
+                        $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
+                            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                        $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), 
+                            ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    }
+                } else {
+                    // Fallback si l'image n'existe pas
+                    $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
+                        ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), 
+                        ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                }
             } else {
                 $cell2->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
                 $cell2->addText('(Signature non apposée)', ['italic' => true, 'size' => 8], 
@@ -870,23 +901,38 @@ class ContractController extends Controller
             $cell1->addText('L\'employeur', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell1->addText('M BRIAND Grégory', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell1->addText('Pour la société', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $cell1->addTextBreak();
             
-            // Créer un arrière-plan gris foncé pour la signature de l'administrateur
-            $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
-                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            
-            $cell1->addText('Grégory BRIAND', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            
-            // Ajouter la date de signature
-            if ($contract->admin_signed_at) {
-                $cell1->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->admin_signed_at)), 
-                    ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            // Insérer l'image de signature de l'administrateur
+            $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
+            if (file_exists($adminSignaturePath)) {
+                try {
+                    $tempDir = sys_get_temp_dir();
+                    $tempImagePath = $tempDir . '/admin_signature_' . time() . '.png';
+                    copy($adminSignaturePath, $tempImagePath);
+                    
+                    $cell1->addImage(
+                        $tempImagePath,
+                        ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
+                    );
+                    
+                    // Si la signature a une date
+                    if ($contract->admin_signed_at) {
+                        $cell1->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->admin_signed_at)), 
+                            ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Erreur lors de l\'ajout de l\'image de signature admin: ' . $e->getMessage());
+                    // Fallback à la version texte
+                    $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
+                        ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    $cell1->addText('Grégory BRIAND', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                }
+            } else {
+                // Fallback si l'image n'existe pas
+                $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
+                    ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell1->addText('Grégory BRIAND', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             }
-            
-            // Ajouter le symbole de vérification
-            $cell1->addText('✓ Signature valide', ['color' => '008800', 'size' => 8], 
-                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             
             // Cellule pour l'espace entre les signatures
             $table->addCell(1000);
@@ -895,24 +941,40 @@ class ContractController extends Controller
             $cell2 = $table->addCell(4000, ['valign' => 'center']);
             $cell2->addText('L\'employé(e)', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $cell2->addTextBreak();
             
             // Si l'employé a signé
-            if ($contract->employee_signed_at) {
-                // Créer un arrière-plan gris foncé pour la signature de l'employé
-                $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
-                    ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                
-                $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), 
-                    ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                
-                // Ajouter la date de signature
-                $cell2->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->employee_signed_at)), 
-                    ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                
-                // Ajouter le symbole de vérification
-                $cell2->addText('✓ Signature valide', ['color' => '008800', 'size' => 8], 
-                    ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            if ($contract->employee_signed_at && $contract->user_id) {
+                // Chercher l'image de signature de l'employé
+                $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
+                if (file_exists($employeeSignaturePath)) {
+                    try {
+                        $tempDir = sys_get_temp_dir();
+                        $tempImagePath = $tempDir . '/employee_signature_' . time() . '.png';
+                        copy($employeeSignaturePath, $tempImagePath);
+                        
+                        $cell2->addImage(
+                            $tempImagePath,
+                            ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
+                        );
+                        
+                        // Ajouter la date de signature
+                        $cell2->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->employee_signed_at)), 
+                            ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    } catch (\Exception $e) {
+                        \Log::error('Erreur lors de l\'ajout de l\'image de signature employé: ' . $e->getMessage());
+                        // Fallback à la version texte
+                        $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
+                            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                        $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), 
+                            ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    }
+                } else {
+                    // Fallback si l'image n'existe pas
+                    $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
+                        ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), 
+                        ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                }
             } else {
                 $cell2->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
                 $cell2->addText('(Signature non apposée)', ['italic' => true, 'size' => 8], 
