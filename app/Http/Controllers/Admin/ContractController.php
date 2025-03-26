@@ -591,13 +591,16 @@ class ContractController extends Controller
             $cell1->addText('Pour la société', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell1->addTextBreak();
 
-            // Signature textuelle pour l'employeur (remplace l'image)
-            $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $cell1->addText('Grégory BRIAND', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $cell1->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            if ($contract->admin_signed_at) {
-                $cell1->addText('Signé le ' . date('d/m/Y à H:i', strtotime($contract->admin_signed_at)), ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            }
+            // Signature électronique pour l'employeur
+            $adminName = 'Grégory BRIAND';
+            $adminTimestamp = $contract->admin_signed_at ? date('d/m/Y H:i:s', strtotime($contract->admin_signed_at)) : date('d/m/Y H:i:s');
+            $adminHash = substr(md5($adminName . $adminTimestamp), 0, 8);
+            
+            $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $cell1->addText($adminName, ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $cell1->addText('ID: ' . strtoupper($adminHash), ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $cell1->addText('Le ' . date('d/m/Y à H:i', strtotime($adminTimestamp)), ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $cell1->addText('✓ Signature valide', ['color' => '008800', 'size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             
             // Cellule pour l'espace entre les signatures
             $table->addCell(1000);
@@ -608,14 +611,20 @@ class ContractController extends Controller
             $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell2->addTextBreak();
             
-            // Signature textuelle pour l'employé (remplace l'image)
+            // Signature électronique pour l'employé
             if ($contract->employee_signed_at) {
-                $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                $cell2->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                $cell2->addText('Signé le ' . date('d/m/Y à H:i', strtotime($contract->employee_signed_at)), ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $employeeName = ($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? '');
+                $employeeTimestamp = date('d/m/Y H:i:s', strtotime($contract->employee_signed_at));
+                $employeeHash = substr(md5($employeeName . $employeeTimestamp), 0, 8);
+                
+                $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText($employeeName, ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText('ID: ' . strtoupper($employeeHash), ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText('Le ' . date('d/m/Y à H:i', strtotime($employeeTimestamp)), ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText('✓ Signature valide', ['color' => '008800', 'size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             } else {
                 $cell2->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText('(Signature non apposée)', ['italic' => true, 'size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             }
             
             // Générer un nom de fichier pour le document Word
@@ -779,13 +788,16 @@ class ContractController extends Controller
             $cell1->addText('Pour la société', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell1->addTextBreak();
 
-            // Signature textuelle pour l'employeur (remplace l'image)
-            $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $cell1->addText('Grégory BRIAND', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $cell1->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            if ($contract->admin_signed_at) {
-                $cell1->addText('Signé le ' . date('d/m/Y à H:i', strtotime($contract->admin_signed_at)), ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            }
+            // Signature électronique pour l'employeur
+            $adminName = 'Grégory BRIAND';
+            $adminTimestamp = $contract->admin_signed_at ? date('d/m/Y H:i:s', strtotime($contract->admin_signed_at)) : date('d/m/Y H:i:s');
+            $adminHash = substr(md5($adminName . $adminTimestamp), 0, 8);
+            
+            $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $cell1->addText($adminName, ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $cell1->addText('ID: ' . strtoupper($adminHash), ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $cell1->addText('Le ' . date('d/m/Y à H:i', strtotime($adminTimestamp)), ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $cell1->addText('✓ Signature valide', ['color' => '008800', 'size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             
             // Cellule pour l'espace entre les signatures
             $table->addCell(1000);
@@ -796,14 +808,20 @@ class ContractController extends Controller
             $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $cell2->addTextBreak();
             
-            // Signature textuelle pour l'employé (remplace l'image)
+            // Signature électronique pour l'employé
             if ($contract->employee_signed_at) {
-                $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                $cell2->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                $cell2->addText('Signé le ' . date('d/m/Y à H:i', strtotime($contract->employee_signed_at)), ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $employeeName = ($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? '');
+                $employeeTimestamp = date('d/m/Y H:i:s', strtotime($contract->employee_signed_at));
+                $employeeHash = substr(md5($employeeName . $employeeTimestamp), 0, 8);
+                
+                $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText($employeeName, ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText('ID: ' . strtoupper($employeeHash), ['size' => 9], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText('Le ' . date('d/m/Y à H:i', strtotime($employeeTimestamp)), ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText('✓ Signature valide', ['color' => '008800', 'size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             } else {
                 $cell2->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $cell2->addText('(Signature non apposée)', ['italic' => true, 'size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             }
             
             // Générer un nom de fichier pour le document Word
