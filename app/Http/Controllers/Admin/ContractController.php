@@ -554,6 +554,7 @@ class ContractController extends Controller
             $section->addText("Le présent contrat est conclu pour une durée indéterminée à compter du $signingDate.");
             $section->addText("Il ne deviendra définitif qu'à l'issue d'une période d'essai de $trialMonths, soit jusqu'au $trialEndDate, renouvelable 1 mois.");
             $section->addText("Durant cette période, chacune des parties pourra, à tout moment, mettre fin au présent contrat sans qu'aucune indemnité ni préavis ne soient dus.");
+            $section->addTextBreak();
             
             // Article 3
             $section->addText("ARTICLE 3 - FONCTIONS", ['bold' => true]);
@@ -571,8 +572,35 @@ class ContractController extends Controller
             // Article 5
             $section->addText("ARTICLE 5 - HORAIRES DE TRAVAIL", ['bold' => true]);
             $weeklyHours = $contract->data->weekly_hours ?? '___________';
-            $section->addText("La durée de travail sera de $gender $fullName de $weeklyHours heures hebdomadaires, réparties du lundi au dimanche.");
+            $section->addText("La durée de travail sera de $weeklyHours heures hebdomadaires, réparties du lundi au dimanche.");
             $section->addText("Les jours et horaires de travail seront indiqués à $gender $fullName, par le biais de plannings hebdomadaires, établis et affichés à l'avance, dans chaque établissement.");
+            $section->addTextBreak();
+            
+            // Article 6
+            $section->addText("ARTICLE 6 - LIEU DE TRAVAIL", ['bold' => true]);
+            $section->addText("$gender $fullName exercera ses fonctions à Paris et sa proche banlieue. Toutefois, en fonction des nécessités de service, il/elle pourra être amené(e) à exercer temporairement ses fonctions en tout lieu où la société WHAT EVER SAS exerce son activité.");
+            $section->addTextBreak();
+            
+            // Article 7
+            $section->addText("ARTICLE 7 - CONGÉS PAYÉS", ['bold' => true]);
+            $section->addText("$gender $fullName bénéficiera des congés payés conformément aux dispositions légales en vigueur. Les dates de congés seront déterminées par accord entre la Direction et $gender $fullName, en fonction des nécessités du service.");
+            $section->addTextBreak();
+            
+            // Article 8
+            $section->addText("ARTICLE 8 - OBLIGATIONS PROFESSIONNELLES", ['bold' => true]);
+            $section->addText("$gender $fullName s'engage pendant la durée de son contrat à respecter les instructions qui lui seront données par la Direction et à se conformer aux règles régissant le fonctionnement interne de l'entreprise.");
+            $section->addText("$gender $fullName s'engage à informer la société WHAT EVER SAS de tout changement concernant sa situation personnelle (domicile, situation de famille, etc).");
+            $section->addText("$gender $fullName s'engage à conserver une discrétion absolue sur tous les faits, informations et documents dont il/elle pourrait avoir connaissance dans l'exercice de ses fonctions.");
+            $section->addTextBreak();
+            
+            // Article 9
+            $section->addText("ARTICLE 9 - RUPTURE DU CONTRAT", ['bold' => true]);
+            $section->addText("A l'issue de la période d'essai, le présent contrat pourra être rompu par l'une ou l'autre des parties dans les conditions prévues par la législation en vigueur, sous réserve du respect du préavis fixé par la convention collective.");
+            $section->addTextBreak();
+            
+            // Article 10
+            $section->addText("ARTICLE 10 - RÉGIME DE PRÉVOYANCE ET MUTUELLE", ['bold' => true]);
+            $section->addText("$gender $fullName sera affilié(e) dès son entrée dans l'entreprise au régime de prévoyance et de complémentaire santé en vigueur dans l'entreprise, selon les conditions générales prévues par ces régimes.");
             $section->addTextBreak();
             
             // Signatures
@@ -779,9 +807,54 @@ class ContractController extends Controller
             $section->addText("Le présent contrat est conclu pour une durée indéterminée à compter du $signingDate.");
             $section->addText("Il ne deviendra définitif qu'à l'issue d'une période d'essai de $trialMonths, soit jusqu'au $trialEndDate, renouvelable 1 mois.");
             $section->addText("Durant cette période, chacune des parties pourra, à tout moment, mettre fin au présent contrat sans qu'aucune indemnité ni préavis ne soient dus.");
+            $section->addTextBreak();
             
-            // Ajoutez plus d'articles selon vos besoins...
-            $section->addTextBreak(2);
+            // Article 3
+            $section->addText("ARTICLE 3 - FONCTIONS", ['bold' => true]);
+            $section->addText("$gender $fullName est employé(e) en qualité d'Employée de restauration.");
+            $section->addText("$gender $fullName exercera ses fonctions dans le cadre des directives écrites ou verbales qui lui seront données par M Briand ou toute personne qui pourrait lui être substituée.");
+            $section->addTextBreak();
+            
+            // Article 4
+            $section->addText("ARTICLE 4 - REMUNERATION", ['bold' => true]);
+            $salary = $contract->data->monthly_gross_salary ?? '___________';
+            $monthlyHours = $contract->data->monthly_hours ?? '___________';
+            $section->addText("La rémunération mensuelle brute de $gender $fullName sera de $salary euros pour $monthlyHours heures mensuel.");
+            $section->addTextBreak();
+            
+            // Article 5
+            $section->addText("ARTICLE 5 - HORAIRES DE TRAVAIL", ['bold' => true]);
+            $weeklyHours = $contract->data->weekly_hours ?? '___________';
+            $section->addText("La durée de travail sera de $weeklyHours heures hebdomadaires, réparties du lundi au dimanche.");
+            $section->addText("Les jours et horaires de travail seront indiqués à $gender $fullName, par le biais de plannings hebdomadaires, établis et affichés à l'avance, dans chaque établissement.");
+            $section->addTextBreak();
+            
+            // Article 6
+            $section->addText("ARTICLE 6 - LIEU DE TRAVAIL", ['bold' => true]);
+            $section->addText("$gender $fullName exercera ses fonctions à Paris et sa proche banlieue. Toutefois, en fonction des nécessités de service, il/elle pourra être amené(e) à exercer temporairement ses fonctions en tout lieu où la société WHAT EVER SAS exerce son activité.");
+            $section->addTextBreak();
+            
+            // Article 7
+            $section->addText("ARTICLE 7 - CONGÉS PAYÉS", ['bold' => true]);
+            $section->addText("$gender $fullName bénéficiera des congés payés conformément aux dispositions légales en vigueur. Les dates de congés seront déterminées par accord entre la Direction et $gender $fullName, en fonction des nécessités du service.");
+            $section->addTextBreak();
+            
+            // Article 8
+            $section->addText("ARTICLE 8 - OBLIGATIONS PROFESSIONNELLES", ['bold' => true]);
+            $section->addText("$gender $fullName s'engage pendant la durée de son contrat à respecter les instructions qui lui seront données par la Direction et à se conformer aux règles régissant le fonctionnement interne de l'entreprise.");
+            $section->addText("$gender $fullName s'engage à informer la société WHAT EVER SAS de tout changement concernant sa situation personnelle (domicile, situation de famille, etc).");
+            $section->addText("$gender $fullName s'engage à conserver une discrétion absolue sur tous les faits, informations et documents dont il/elle pourrait avoir connaissance dans l'exercice de ses fonctions.");
+            $section->addTextBreak();
+            
+            // Article 9
+            $section->addText("ARTICLE 9 - RUPTURE DU CONTRAT", ['bold' => true]);
+            $section->addText("A l'issue de la période d'essai, le présent contrat pourra être rompu par l'une ou l'autre des parties dans les conditions prévues par la législation en vigueur, sous réserve du respect du préavis fixé par la convention collective.");
+            $section->addTextBreak();
+            
+            // Article 10
+            $section->addText("ARTICLE 10 - RÉGIME DE PRÉVOYANCE ET MUTUELLE", ['bold' => true]);
+            $section->addText("$gender $fullName sera affilié(e) dès son entrée dans l'entreprise au régime de prévoyance et de complémentaire santé en vigueur dans l'entreprise, selon les conditions générales prévues par ces régimes.");
+            $section->addTextBreak();
             
             // Signatures
             $section->addText("Fait en double exemplaire originaux dont un pour chacune des parties.", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
