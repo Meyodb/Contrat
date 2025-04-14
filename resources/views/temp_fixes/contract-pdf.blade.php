@@ -212,73 +212,78 @@
                         <p>&nbsp;</p>
                         <div style="text-align: center;">
                         @php
-                            $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
-                            $adminSignatureBase64 = '';
-                            
-                            \Log::info('PDF: Tentative de lecture de la signature admin', [
-                                'chemin' => $adminSignaturePath,
-                                'existe' => file_exists($adminSignaturePath),
-                                'taille' => file_exists($adminSignaturePath) ? filesize($adminSignaturePath) : 0
-                            ]);
-                            
-                            if (file_exists($adminSignaturePath)) {
-                                try {
-                                    $adminSignatureContent = file_get_contents($adminSignaturePath);
-                                    if ($adminSignatureContent !== false) {
-                                        $adminSignatureBase64 = base64_encode($adminSignatureContent);
-                                        \Log::info('PDF: Signature admin lue avec succès', [
-                                            'taille_base64' => strlen($adminSignatureBase64)
-                                        ]);
-                                    } else {
-                                        \Log::error('PDF: Impossible de lire le contenu de la signature admin');
-                                    }
-                                } catch (\Exception $e) {
-                                    \Log::error('PDF: Exception lors de la lecture de la signature admin: ' . $e->getMessage());
-                                }
-                            }
-                            
-                            // Si la signature n'est pas trouvée, essayer avec Storage
-                            if (empty($adminSignatureBase64) && \Storage::exists('public/signatures/admin_signature.png')) {
-                                try {
-                                    $adminSignatureContent = \Storage::get('public/signatures/admin_signature.png');
-                                    if ($adminSignatureContent !== false) {
-                                        $adminSignatureBase64 = base64_encode($adminSignatureContent);
-                                        \Log::info('PDF: Signature admin récupérée via Storage', [
-                                            'taille_base64' => strlen($adminSignatureBase64)
-                                        ]);
-                                    }
-                                } catch (\Exception $e) {
-                                    \Log::error('PDF: Exception avec Storage: ' . $e->getMessage());
-                                }
-                            }
-                            
-                            // En dernier recours, créer la signature
-                            if (empty($adminSignatureBase64)) {
-                                $controller = new \App\Http\Controllers\SignatureController();
-                                $methodName = 'createAdminSignature';
+                            // Si la signature de l'admin est déjà passée par le controller, on l'utilise directement
+                            if (isset($adminSignatureBase64) && !empty($adminSignatureBase64)) {
+                                // On utilise directement la variable existante
+                                \Log::info('Signature admin déjà présente, longueur: ' . strlen($adminSignatureBase64));
+                            } else {
+                                // Sinon on essaie de la calculer (ancien comportement)
+                                $adminSignatureBase64 = '';
                                 
-                                if (method_exists($controller, $methodName)) {
-                                    $reflection = new \ReflectionMethod($controller, $methodName);
-                                    $reflection->setAccessible(true);
-                                    $result = $reflection->invoke($controller);
+                                // Tenter de charger la signature de l'administrateur
+                                if (isset($admin_signature)) {
+                                    // Si on a un chemin de signature admin, essayer de charger le fichier
+                                    $adminSignaturePath = storage_path('app/public/signatures/' . $admin_signature);
                                     
-                                    \Log::info('PDF: Tentative de création de signature', [
-                                        'résultat' => $result ? 'Succès' : 'Échec'
-                                    ]);
-                                    
-                                    // Essayer à nouveau de lire le fichier
                                     if (file_exists($adminSignaturePath)) {
-                                        $adminSignatureContent = file_get_contents($adminSignaturePath);
-                                        if ($adminSignatureContent !== false) {
+                                        try {
+                                            $adminSignatureContent = file_get_contents($adminSignaturePath);
                                             $adminSignatureBase64 = base64_encode($adminSignatureContent);
+                                            
+                                            \Log::info('Chargement signature admin depuis $admin_signature', [
+                                                'chemin' => $adminSignaturePath,
+                                                'taille_base64' => strlen($adminSignatureBase64)
+                                            ]);
+                                        } catch (Exception $e) {
+                                            \Log::error('Erreur lors du chargement de la signature admin: ' . $e->getMessage());
                                         }
+                                    }
+                                }
+                                
+                                // Si toujours pas de signature, essayer le chemin par défaut
+                                if (empty($adminSignatureBase64) && \Storage::exists('public/signatures/admin_signature.png')) {
+                                    try {
+                                        $adminSignatureContent = \Storage::get('public/signatures/admin_signature.png');
+                                        $adminSignatureBase64 = base64_encode($adminSignatureContent);
+                                        
+                                        \Log::info('Chargement signature admin depuis chemin par défaut', [
+                                            'taille_base64' => strlen($adminSignatureBase64)
+                                        ]);
+                                    } catch (Exception $e) {
+                                        \Log::error('Erreur lors du chargement de la signature admin: ' . $e->getMessage());
+                                    }
+                                }
+                                
+                                // Si toujours rien, générer une signature par défaut
+                                if (empty($adminSignatureBase64)) {
+                                    try {
+                                        // Créer une image simple
+                                        $img = imagecreatetruecolor(300, 100);
+                                        $bg = imagecolorallocate($img, 255, 255, 255);
+                                        $textcolor = imagecolorallocate($img, 0, 0, 0);
+                                        
+                                        // Dessiner un fond blanc
+                                        imagefilledrectangle($img, 0, 0, 300, 100, $bg);
+                                        
+                                        // Ajouter un texte
+                                        imagestring($img, 5, 70, 40, "Signature Administrateur", $textcolor);
+                                        
+                                        // Capturer l'image en mémoire
+                                        ob_start();
+                                        imagepng($img);
+                                        $adminSignatureContent = ob_get_clean();
+                                        imagedestroy($img);
+                                        
+                                        $adminSignatureBase64 = base64_encode($adminSignatureContent);
+                                    } catch (Exception $e) {
+                                        \Log::error('Erreur lors de la génération de la signature admin: ' . $e->getMessage());
                                     }
                                 }
                             }
                         @endphp
                         
                         @if(!empty($adminSignatureBase64))
-                            <img src="data:image/png;base64,{{ $adminSignatureBase64 }}" alt="Signature de l'employeur" style="max-height: 100px; margin: 0 auto;">
+                            <img src="{{ strpos($adminSignatureBase64, 'data:') === 0 ? $adminSignatureBase64 : 'data:image/png;base64,' . $adminSignatureBase64 }}" alt="Signature de l'employeur" style="max-height: 100px; margin: 0 auto;">
                         @else
                             <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block; text-align:center; margin: 0 auto;">
                                 Signature de l'employeur
@@ -293,117 +298,81 @@
                         <p>&nbsp;</p>
                         <div style="text-align: center;">
                         @php
-                            $employeeSignaturePath = '';
-                            if (isset($employee_signature)) {
-                                $employeeSignaturePath = storage_path('app/public/signatures/' . basename($employee_signature));
-                                \Log::info('PDF: Signature employé demandée', [
-                                    'param_employee_signature' => $employee_signature,
-                                    'chemin_calculé' => $employeeSignaturePath
-                                ]);
+                            // Si la signature de l'employé est déjà passée par le controller, on l'utilise directement
+                            if (isset($employeeSignatureBase64) && !empty($employeeSignatureBase64)) {
+                                // On utilise directement la variable existante
+                                \Log::info('Signature employé déjà présente, longueur: ' . strlen($employeeSignatureBase64));
                             } else {
-                                \Log::warning('PDF: Variable employee_signature non définie');
-                            }
-                            
-                            // Essayer de déterminer le fichier basé sur l'utilisateur du contrat
-                            if (empty($employeeSignaturePath) && isset($contract) && isset($contract->user_id)) {
-                                $userId = $contract->user_id;
-                                $employeeSignatureFilename = $userId . '_employee.png';
-                                $employeeSignaturePath = storage_path('app/public/signatures/' . $employeeSignatureFilename);
-                                \Log::info('PDF: Tentative alternative avec user_id', [
-                                    'user_id' => $userId,
-                                    'filename' => $employeeSignatureFilename,
-                                    'chemin' => $employeeSignaturePath
-                                ]);
-                            }
-                            
-                            \Log::info('PDF: Tentative de lecture de la signature employé', [
-                                'chemin' => $employeeSignaturePath,
-                                'existe' => !empty($employeeSignaturePath) && file_exists($employeeSignaturePath),
-                                'taille' => (!empty($employeeSignaturePath) && file_exists($employeeSignaturePath)) ? filesize($employeeSignaturePath) : 0
-                            ]);
-                            
-                            $employeeSignatureBase64 = '';
-                            
-                            // Méthode 1: Lecture directe du fichier
-                            if (!empty($employeeSignaturePath) && file_exists($employeeSignaturePath)) {
-                                try {
-                                    $employeeSignatureContent = file_get_contents($employeeSignaturePath);
-                                    if ($employeeSignatureContent !== false) {
-                                        $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                                        \Log::info('PDF: Signature employé lue avec succès (méthode directe)', [
-                                            'taille_base64' => strlen($employeeSignatureBase64)
-                                        ]);
-                                    } else {
-                                        \Log::error('PDF: Impossible de lire le contenu de la signature employé');
-                                    }
-                                } catch (\Exception $e) {
-                                    \Log::error('PDF: Exception lors de la lecture de la signature employé: ' . $e->getMessage());
-                                }
-                            }
-                            
-                            // Méthode 2: Utilisation de Storage si la méthode 1 a échoué
-                            if (empty($employeeSignatureBase64) && isset($employee_signature)) {
-                                $storagePath = 'public/signatures/' . basename($employee_signature);
-                                if (\Storage::exists($storagePath)) {
-                                    try {
-                                        $employeeSignatureContent = \Storage::get($storagePath);
-                                        if ($employeeSignatureContent !== false) {
-                                            $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                                            \Log::info('PDF: Signature employé récupérée via Storage', [
-                                                'path' => $storagePath,
-                                                'taille_base64' => strlen($employeeSignatureBase64)
-                                            ]);
-                                        }
-                                    } catch (\Exception $e) {
-                                        \Log::error('PDF: Exception avec Storage pour employé: ' . $e->getMessage());
-                                    }
-                                }
-                            }
-                            
-                            // Méthode 3: Tentative avec l'ID utilisateur si disponible
-                            if (empty($employeeSignatureBase64) && isset($contract) && isset($contract->user_id)) {
-                                $userId = $contract->user_id;
-                                $storagePath = 'public/signatures/' . $userId . '_employee.png';
+                                // Sinon on essaie de la calculer (ancien comportement)
+                                $employeeSignatureBase64 = '';
                                 
-                                if (\Storage::exists($storagePath)) {
-                                    try {
-                                        $employeeSignatureContent = \Storage::get($storagePath);
-                                        if ($employeeSignatureContent !== false) {
+                                // 1. Essayer avec le chemin spécifique à l'employé si disponible
+                                if (isset($data) && isset($data->user_id)) {
+                                    $employeeSignaturePath = storage_path('app/public/signatures/' . $data->user_id . '_employee.png');
+                                    
+                                    if (file_exists($employeeSignaturePath)) {
+                                        try {
+                                            $employeeSignatureContent = file_get_contents($employeeSignaturePath);
                                             $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                                            \Log::info('PDF: Signature employé récupérée via Storage avec user_id', [
-                                                'user_id' => $userId,
-                                                'path' => $storagePath,
+                                            
+                                            \Log::info('Chargement signature employé depuis user_id', [
+                                                'chemin' => $employeeSignaturePath,
                                                 'taille_base64' => strlen($employeeSignatureBase64)
                                             ]);
+                                        } catch (Exception $e) {
+                                            \Log::error('Erreur lors du chargement de la signature employé: ' . $e->getMessage());
                                         }
-                                    } catch (\Exception $e) {
-                                        \Log::error('PDF: Exception avec Storage pour employé (user_id): ' . $e->getMessage());
                                     }
                                 }
-                            }
-                            
-                            // Méthode 4: Utiliser le fichier générique employee_signature.png comme dernier recours
-                            if (empty($employeeSignatureBase64)) {
-                                $genericPath = storage_path('app/public/signatures/employee_signature.png');
-                                if (file_exists($genericPath)) {
-                                    try {
-                                        $employeeSignatureContent = file_get_contents($genericPath);
-                                        if ($employeeSignatureContent !== false) {
+                                
+                                // 2. Si aucune signature trouvée et qu'on a employee_signature, l'utiliser
+                                if (empty($employeeSignatureBase64) && isset($employee_signature)) {
+                                    $employeeSignaturePath = storage_path('app/public/signatures/' . $employee_signature);
+                                    
+                                    if (file_exists($employeeSignaturePath)) {
+                                        try {
+                                            $employeeSignatureContent = file_get_contents($employeeSignaturePath);
                                             $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                                            \Log::info('PDF: Signature employé récupérée via fichier générique', [
-                                                'path' => $genericPath,
+                                            
+                                            \Log::info('Chargement signature employé depuis $employee_signature', [
+                                                'chemin' => $employeeSignaturePath,
                                                 'taille_base64' => strlen($employeeSignatureBase64)
                                             ]);
+                                        } catch (Exception $e) {
+                                            \Log::error('Erreur lors du chargement de la signature employé: ' . $e->getMessage());
                                         }
-                                    } catch (\Exception $e) {
-                                        \Log::error('PDF: Exception avec fichier générique: ' . $e->getMessage());
                                     }
                                 }
+                                
+                                // 3. Si aucune signature trouvée et qu'on a contract->user_id, essayer avec
+                                if (empty($employeeSignatureBase64) && isset($contract) && isset($contract->user_id)) {
+                                    $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
+                                    
+                                    if (file_exists($employeeSignaturePath)) {
+                                        try {
+                                            $employeeSignatureContent = file_get_contents($employeeSignaturePath);
+                                            $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
+                                            
+                                            \Log::info('Chargement signature employé depuis contract->user_id', [
+                                                'chemin' => $employeeSignaturePath,
+                                                'taille_base64' => strlen($employeeSignatureBase64)
+                                            ]);
+                                        } catch (Exception $e) {
+                                            \Log::error('Erreur lors du chargement de la signature employé: ' . $e->getMessage());
+                                        }
+                                    }
+                                }
+                                
+                                // 4. Si toujours rien, utiliser une signature générique
+                                if (empty($employeeSignatureBase64)) {
+                                    // Pas de signature, créer une image vide
+                                    // (comportement par défaut)
+                                }
                             }
-                        @endphp
+                        ?>
                         
                         @if(!empty($employeeSignatureBase64))
-                            <img src="data:image/png;base64,{{ $employeeSignatureBase64 }}" alt="Signature de l'employé" style="max-height: 100px; margin: 0 auto;">
+                            <img src="{{ strpos($employeeSignatureBase64, 'data:') === 0 ? $employeeSignatureBase64 : 'data:image/png;base64,' . $employeeSignatureBase64 }}" alt="Signature de l'employé" style="max-height: 100px; margin: 0 auto;">
                         @else
                             <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block; text-align:center; margin: 0 auto;">
                                 Signature de l'employé
@@ -428,95 +397,8 @@
 
         <div style="margin-top:60px;">
             <p><strong>Signature :</strong></p>
-            @php
-                $employeeSignaturePath = '';
-                if (isset($employee_signature)) {
-                    $employeeSignaturePath = storage_path('app/public/signatures/' . basename($employee_signature));
-                }
-                
-                // Essayer de déterminer le fichier basé sur l'utilisateur du contrat
-                if (empty($employeeSignaturePath) && isset($contract) && isset($contract->user_id)) {
-                    $userId = $contract->user_id;
-                    $employeeSignatureFilename = $userId . '_employee.png';
-                    $employeeSignaturePath = storage_path('app/public/signatures/' . $employeeSignatureFilename);
-                    \Log::info('PDF Annexe: Tentative alternative avec user_id', [
-                        'user_id' => $userId,
-                        'filename' => $employeeSignatureFilename,
-                        'chemin' => $employeeSignaturePath
-                    ]);
-                }
-                
-                $employeeSignatureBase64 = '';
-                
-                // Méthode 1: Lecture directe du fichier
-                if (!empty($employeeSignaturePath) && file_exists($employeeSignaturePath)) {
-                    try {
-                        $employeeSignatureContent = file_get_contents($employeeSignaturePath);
-                        if ($employeeSignatureContent !== false) {
-                            $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                            \Log::info('PDF Annexe: Signature employé lue avec succès (méthode directe)', [
-                                'taille_base64' => strlen($employeeSignatureBase64)
-                            ]);
-                        }
-                    } catch (\Exception $e) {
-                        \Log::error('PDF Annexe: Exception lors de la lecture de la signature employé: ' . $e->getMessage());
-                    }
-                }
-                
-                // Méthode 2: Utilisation de Storage si la méthode 1 a échoué
-                if (empty($employeeSignatureBase64) && isset($employee_signature)) {
-                    $storagePath = 'public/signatures/' . basename($employee_signature);
-                    if (\Storage::exists($storagePath)) {
-                        try {
-                            $employeeSignatureContent = \Storage::get($storagePath);
-                            if ($employeeSignatureContent !== false) {
-                                $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                            }
-                        } catch (\Exception $e) {
-                            \Log::error('PDF Annexe: Exception avec Storage pour employé: ' . $e->getMessage());
-                        }
-                    }
-                }
-                
-                // Méthode 3: Tentative avec l'ID utilisateur si disponible
-                if (empty($employeeSignatureBase64) && isset($contract) && isset($contract->user_id)) {
-                    $userId = $contract->user_id;
-                    $storagePath = 'public/signatures/' . $userId . '_employee.png';
-                    
-                    if (\Storage::exists($storagePath)) {
-                        try {
-                            $employeeSignatureContent = \Storage::get($storagePath);
-                            if ($employeeSignatureContent !== false) {
-                                $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                            }
-                        } catch (\Exception $e) {
-                            \Log::error('PDF: Exception avec Storage pour employé (user_id): ' . $e->getMessage());
-                        }
-                    }
-                }
-                
-                // Méthode 4: Utiliser le fichier générique employee_signature.png comme dernier recours
-                if (empty($employeeSignatureBase64)) {
-                    $genericPath = storage_path('app/public/signatures/employee_signature.png');
-                    if (file_exists($genericPath)) {
-                        try {
-                            $employeeSignatureContent = file_get_contents($genericPath);
-                            if ($employeeSignatureContent !== false) {
-                                $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                                \Log::info('PDF Annexe: Signature employé récupérée via fichier générique', [
-                                    'path' => $genericPath,
-                                    'taille_base64' => strlen($employeeSignatureBase64)
-                                ]);
-                            }
-                        } catch (\Exception $e) {
-                            \Log::error('PDF Annexe: Exception avec fichier générique: ' . $e->getMessage());
-                        }
-                    }
-                }
-            @endphp
-            
             @if(!empty($employeeSignatureBase64))
-                <img src="data:image/png;base64,{{ $employeeSignatureBase64 }}" alt="Signature de l'employé" style="max-height: 100px; margin-top: 20px;">
+                <img src="{{ strpos($employeeSignatureBase64, 'data:') === 0 ? $employeeSignatureBase64 : 'data:image/png;base64,' . $employeeSignatureBase64 }}" alt="Signature de l'employé" style="max-height: 100px; margin-top: 20px;">
             @else
                 <div style="width:200px; height:100px; border-bottom: 1px solid #000; margin-top: 20px;">
                 </div>

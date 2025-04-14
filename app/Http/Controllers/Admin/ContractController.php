@@ -16,6 +16,10 @@ use PhpOffice\PhpWord\Settings;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Support\Facades\Log;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Temp_Fixes\SignatureHelper;
+use App\Notifications\AvenantCreated;
+use Carbon\Carbon;
 
 class ContractController extends Controller
 {
@@ -244,10 +248,35 @@ class ContractController extends Controller
             
             // Vérifier si la signature existe déjà, sinon utiliser une signature par défaut
             if (!Storage::exists($publicSignaturePath)) {
-                // Si on n'a pas de signature, copier une signature par défaut ou en créer une
-                $defaultSignature = base64_encode(file_get_contents(public_path('img/default_admin_signature.png')));
-                Storage::put($privateSignaturePath, base64_decode($defaultSignature));
-                Storage::put($publicSignaturePath, base64_decode($defaultSignature));
+                // Si on n'a pas de signature, créer une signature par défaut simple
+                // Générer une image de signature basique
+                $img = imagecreatetruecolor(300, 100);
+                $background = imagecolorallocate($img, 255, 255, 255);
+                $textcolor = imagecolorallocate($img, 0, 0, 0);
+                
+                // Fond blanc
+                imagefilledrectangle($img, 0, 0, 300, 100, $background);
+                
+                // Dessiner une signature stylisée (lignes courbes)
+                imageline($img, 50, 50, 100, 30, $textcolor);
+                imageline($img, 100, 30, 150, 70, $textcolor);
+                imageline($img, 150, 70, 200, 40, $textcolor);
+                imageline($img, 200, 40, 250, 60, $textcolor);
+                
+                // Sauvegarder l'image
+                ob_start();
+                imagepng($img);
+                $signatureContent = ob_get_clean();
+                imagedestroy($img);
+                
+                // Sauvegarder dans les deux emplacements
+                Storage::put($privateSignaturePath, $signatureContent);
+                Storage::put($publicSignaturePath, $signatureContent);
+                
+                \Log::info('Signature admin créée', [
+                    'private_path' => $privateSignaturePath,
+                    'public_path' => $publicSignaturePath
+                ]);
             }
             
             // L'URL est maintenant toujours la même
@@ -286,110 +315,191 @@ class ContractController extends Controller
                 ->with('error', 'Le contrat doit être approuvé ou signé avant de pouvoir être généré.');
         }
         
-        // Utiliser directement le template "CDI Whatever"
-        $templatePath = storage_path('app/templates/CDI Whatever.docx');
-        
-        // Vérifier si le fichier template existe
-        if (!file_exists($templatePath)) {
-            return redirect()->route('admin.contracts.show', $contract)
-                ->with('error', 'Le template de contrat "CDI Whatever" est introuvable.');
-        }
-        
-        // Generate a unique filename for the contract
-        $user = $contract->user;
-        
-        // Format NOM_PRENOM_CONTRAT
-        $nameParts = explode(' ', trim($user->name));
-        $lastName = strtoupper(array_shift($nameParts));
-        $firstName = implode('_', array_map('ucfirst', $nameParts));
-        $filename = $lastName . '_' . $firstName . '_CONTRAT.docx';
-        
-        $generatedPath = storage_path('app/contracts/' . $filename);
-        
-        // Ensure the contracts directory exists
-        if (!Storage::exists('contracts')) {
-            Storage::makeDirectory('contracts');
-        }
-        
-        // Copy the template file
-        copy($templatePath, $generatedPath);
-        
-        // Use PHPWord to replace placeholders
-        $phpWord = IOFactory::load($generatedPath);
-        
-        // Replace placeholders with user data
-        $contractData = $contract->data ? $contract->data->toArray() : [];
-        
-        // Get signature placeholders
-        $adminSignaturePlaceholder = "[Signature de l'administrateur]";
-        $employeeSignaturePlaceholder = "[Signature de l'employé]";
-        
-        // If admin has signed, replace admin signature placeholder with actual signature
-        if ($contract->admin_signature) {
-            if (filter_var($contract->admin_signature, FILTER_VALIDATE_URL)) {
-                // It's an image URL (from the pre-registered signature)
-                $adminSignaturePlaceholder = '<img src="' . $contract->admin_signature . '" width="100" height="50" />';
+        try {
+            // Generate a unique filename for the contract
+            $user = $contract->user;
+            
+            // Format NOM_PRENOM_CONTRAT ou NOM_PRENOM_AVENANT_N
+            $nameParts = explode(' ', trim($user->name));
+            $lastName = strtoupper(array_shift($nameParts));
+            $firstName = implode('_', array_map('ucfirst', $nameParts));
+            
+            if ($contract->isAvenant()) {
+                $filename = $lastName . '_' . $firstName . '_AVENANT_' . $contract->avenant_number . '.pdf';
             } else {
-                // It's a text signature
-                $adminSignaturePlaceholder = $contract->admin_signature;
+                $filename = $lastName . '_' . $firstName . '_CONTRAT.pdf';
             }
-        }
-        
-        // If employee has signed, replace employee signature placeholder with actual signature
-        if ($contract->employee_signature) {
-            $employeeSignaturePlaceholder = $contract->employee_signature;
-        }
-        
-        // Search and replace in the document
-        $this->replacePlaceholdersInDocument($phpWord, [
-            '{{USER_NAME}}' => $user->name,
-            '{{USER_EMAIL}}' => $user->email,
-            '{{CONTRACT_DATE}}' => date('Y-m-d'),
-            '{{ADMIN_SIGNATURE}}' => $adminSignaturePlaceholder,
-            '{{EMPLOYEE_SIGNATURE}}' => $employeeSignaturePlaceholder,
-            // Add more placeholders as needed
-        ]);
-        
-        // Also replace any contract-specific data
-        if (!empty($contractData)) {
-            $placeholders = [];
-            foreach ($contractData as $key => $value) {
-                if (is_string($value) || is_numeric($value)) {
-                    $placeholders['{{'.$key.'}}'] = $value;
+            
+            // Ensure the contracts directory exists with correct permissions
+            if (!Storage::exists('contracts')) {
+                Storage::makeDirectory('contracts', 0755);
+            }
+            
+            // Ensure filesystem path exists with proper permissions
+            $contractsDir = storage_path('app/contracts');
+            if (!file_exists($contractsDir)) {
+                mkdir($contractsDir, 0755, true);
+            }
+            
+            // Vérifier si le répertoire a bien été créé
+            if (!is_dir($contractsDir) || !is_writable($contractsDir)) {
+                throw new \Exception('Le répertoire des contrats n\'existe pas ou n\'est pas accessible en écriture: ' . $contractsDir);
+            }
+            
+            // Vérifier que les fichiers de signature existent
+            $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
+            $employeeSignaturePath = $contract->user_id ? storage_path('app/public/signatures/' . $contract->user_id . '_employee.png') : null;
+            
+            \Log::info('Génération PDF - Vérification des signatures', [
+                'admin_exists' => file_exists($adminSignaturePath),
+                'admin_size' => file_exists($adminSignaturePath) ? filesize($adminSignaturePath) : 0,
+                'employee_exists' => $employeeSignaturePath ? file_exists($employeeSignaturePath) : false,
+                'employee_size' => ($employeeSignaturePath && file_exists($employeeSignaturePath)) ? filesize($employeeSignaturePath) : 0
+            ]);
+            
+            // Si la signature de l'employé existe, créer une copie avec un nom standardisé
+            $employeeSignatureFilename = null;
+            if ($employeeSignaturePath && file_exists($employeeSignaturePath)) {
+                $employeeSignatureFilename = 'employee_signature_' . time() . '.png';
+                $employeeSignatureTempPath = storage_path('app/public/signatures/' . $employeeSignatureFilename);
+                
+                if (copy($employeeSignaturePath, $employeeSignatureTempPath)) {
+                    chmod($employeeSignatureTempPath, 0777);
+                    \Log::info('Signature employé copiée pour le PDF', [
+                        'source' => $employeeSignaturePath,
+                        'destination' => $employeeSignatureTempPath
+                    ]);
+                } else {
+                    \Log::error('Échec de la copie de la signature employé', [
+                        'source' => $employeeSignaturePath
+                    ]);
+                }
+            } else if ($contract->employee_signature) {
+                // Si on a un chemin dans la base de données mais pas de fichier, tenter avec ce chemin
+                $dbPath = $contract->employee_signature;
+                $dbFilePath = storage_path('app/public/' . str_replace('signatures/', '', $dbPath));
+                
+                \Log::info('Tentative alternative pour signature employé', [
+                    'db_path' => $dbPath,
+                    'file_path' => $dbFilePath,
+                    'exists' => file_exists($dbFilePath)
+                ]);
+                
+                if (file_exists($dbFilePath)) {
+                    $employeeSignatureFilename = 'employee_signature_' . time() . '.png';
+                    $employeeSignatureTempPath = storage_path('app/public/signatures/' . $employeeSignatureFilename);
+                    
+                    if (copy($dbFilePath, $employeeSignatureTempPath)) {
+                        chmod($employeeSignatureTempPath, 0777);
+                        \Log::info('Signature employé copiée depuis chemin DB pour le PDF', [
+                            'source' => $dbFilePath,
+                            'destination' => $employeeSignatureTempPath
+                        ]);
+                    }
                 }
             }
-            $this->replacePlaceholdersInDocument($phpWord, $placeholders);
+            
+            // Préparer les données pour le template
+            $contractData = [
+                'contract' => $contract,
+                'user' => $contract->user,
+                'admin' => $contract->admin ?? auth()->user(),
+                'data' => $contract->data,
+            ];
+            
+            // Utiliser SignatureHelper pour préparer les signatures
+            $signatureHelper = new SignatureHelper();
+            
+            // Récupérer la signature de l'administrateur
+            $adminSignatureBase64 = $signatureHelper->prepareSignatureForPdf('admin_signature.png');
+            
+            // Récupérer la signature de l'employé
+            $employeeId = $contract->user_id;
+            $employeeSignatureBase64 = $signatureHelper->prepareSignatureForPdf($employeeId . '_employee.png', $employeeId);
+            
+            // Ajouter les signatures aux données du contrat
+            $contractData['adminSignatureBase64'] = $adminSignatureBase64;
+            $contractData['employeeSignatureBase64'] = $employeeSignatureBase64;
+            
+            // Ajouter date de génération
+            $contractData['generatedAt'] = now()->format('d/m/Y H:i:s');
+            
+            // Pour les avenants, ajouter les données spécifiques
+            if ($contract->isAvenant()) {
+                $contractData['avenant_number'] = $contract->avenant_number;
+                $contractData['employee_name'] = $contract->data->full_name ?? $contract->user->name;
+                $contractData['employee_gender'] = $contract->data->gender ?? 'M';
+                $contractData['contract_date'] = $contract->parentContract->data->contract_signing_date ?? now();
+                $contractData['effective_date'] = $contract->data->effective_date ?? now();
+                $contractData['signing_date'] = $contract->data->contract_signing_date ?? now();
+                $contractData['new_hours'] = $contract->data->work_hours ?? '';
+                $contractData['new_salary'] = $contract->data->monthly_gross_salary ?? '';
+                $contractData['monthly_hours'] = $contract->data->monthly_hours ?? '';
+                
+                // Générer le HTML avec le template d'avenant
+                $html = view('pdf.avenant-template', $contractData)->render();
+            } else {
+                // Générer le HTML avec le template Blade
+                $html = view('temp_fixes.contract-pdf', $contractData)->render();
+            }
+            
+            // Pour débogage, sauvegarder le HTML généré
+            $htmlDebugPath = storage_path('app/temp/debug_' . $filename . '.html');
+            $htmlDebugDir = dirname($htmlDebugPath);
+            if (!file_exists($htmlDebugDir)) {
+                mkdir($htmlDebugDir, 0755, true);
+            }
+            file_put_contents($htmlDebugPath, $html);
+            \Log::info('Génération PDF - HTML sauvegardé pour débogage', ['path' => $htmlDebugPath]);
+            
+            // Créer le PDF
+            $pdf = Pdf::loadHTML($html);
+            $pdf->setPaper('a4');
+            
+            // Sauvegarder le PDF
+            $pdfPath = storage_path('app/contracts/' . $filename);
+            \Log::info('Tentative de sauvegarde du PDF', ['path' => $pdfPath]);
+            
+            try {
+                $pdf->save($pdfPath);
+                \Log::info('PDF sauvegardé avec succès', ['path' => $pdfPath]);
+            } catch (\Exception $e) {
+                \Log::error('Erreur lors de la sauvegarde du PDF', [
+                    'path' => $pdfPath,
+                    'message' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                throw $e;
+            }
+            
+            // Vérifier que le fichier a bien été créé
+            if (!file_exists($pdfPath)) {
+                $errorMsg = 'Le fichier PDF n\'a pas été créé: ' . $pdfPath;
+                \Log::error($errorMsg);
+                throw new \Exception($errorMsg);
+            }
+            
+            // Update the contract with the PDF path and change status
+            $contract->final_document_path = 'contracts/' . $filename;
+            $contract->generated_at = now();
+            
+            // Si le contrat est signé par les deux parties, marquer comme complété
+            if ($contract->admin_signature && $contract->employee_signature) {
+                $contract->status = 'completed';
+                $contract->completed_at = now();
+            } else {
+                $contract->status = 'generated';
+            }
+            
+            $contract->save();
+            
+            return redirect()->route('admin.contracts.show', $contract)
+                ->with('success', 'Le document a été généré avec succès.');
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors de la génération du contrat: ' . $e->getMessage());
+            return redirect()->route('admin.contracts.show', $contract)
+                ->with('error', 'Une erreur est survenue lors de la génération du contrat: ' . $e->getMessage());
         }
-        
-        // Save the document
-        $phpWord->save($generatedPath);
-        
-        // Convert to PDF with the required naming format
-        Settings::setPdfRendererName(Settings::PDF_RENDERER_DOMPDF);
-        Settings::setPdfRendererPath(base_path('vendor/dompdf/dompdf'));
-        
-        $pdfFilename = pathinfo($filename, PATHINFO_FILENAME) . '.pdf';
-        $pdfPath = storage_path('app/contracts/' . $pdfFilename);
-        
-        $pdf = IOFactory::createWriter($phpWord, 'PDF');
-        $pdf->save($pdfPath);
-        
-        // Update the contract with the PDF path and change status
-        $contract->final_document_path = 'contracts/' . $pdfFilename;
-        $contract->generated_at = now();
-        
-        // Si le contrat est signé par les deux parties, marquer comme complété
-        if ($contract->admin_signature && $contract->employee_signature) {
-            $contract->status = 'completed';
-            $contract->completed_at = now();
-        } else {
-            $contract->status = 'generated';
-        }
-        
-        $contract->save();
-
-        return redirect()->route('admin.contracts.show', $contract)
-            ->with('success', 'Le document du contrat a été généré avec succès.');
     }
 
     private function createDefaultTemplate($templatePath)
@@ -470,6 +580,105 @@ class ContractController extends Controller
     }
 
     /**
+     * Prévisualise le contrat
+     */
+    public function preview(Contract $contract)
+    {
+        try {
+            // Générer directement la prévisualisation comme dans l'ancienne méthode
+            // Augmenter le temps d'exécution maximum pour éviter les timeouts
+            set_time_limit(300);
+            ini_set('memory_limit', '512M');
+            
+            // Préparer les données pour le template
+            $contractData = [
+                'contract' => $contract,
+                'user' => $contract->user,
+                'admin' => $contract->admin ?? auth()->user(),
+                'data' => $contract->data,
+            ];
+            
+            // Utiliser SignatureHelper pour préparer les signatures
+            $signatureHelper = new \App\Temp_Fixes\SignatureHelper();
+            
+            // Récupérer la signature de l'administrateur
+            $adminSignatureBase64 = $signatureHelper->prepareSignatureForPdf('admin_signature.png');
+            
+            // Récupérer la signature de l'employé
+            $employeeId = $contract->user_id;
+            $employeeSignatureBase64 = $signatureHelper->prepareSignatureForPdf('employee_signature.png', $employeeId);
+            
+            // Ajouter les signatures aux données du contrat seulement si le contrat est déjà signé
+            if ($contract->status === 'admin_signed' || $contract->status === 'employee_signed' || $contract->status === 'completed') {
+                // Afficher les signatures existantes dans la prévisualisation
+                $contractData['adminSignatureBase64'] = $adminSignatureBase64;
+                $contractData['employeeSignatureBase64'] = $employeeSignatureBase64;
+                \Log::info('Prévisualisation PDF - Signatures incluses (contrat signé)', [
+                    'admin_signature' => !empty($adminSignatureBase64) ? 'Base64 présent (' . strlen($adminSignatureBase64) . ' octets)' : 'Manquante',
+                    'employee_signature' => !empty($employeeSignatureBase64) ? 'Base64 présent (' . strlen($employeeSignatureBase64) . ' octets)' : 'Manquante',
+                    'status' => $contract->status
+                ]);
+            } else {
+                // Ne pas inclure les signatures pour les contrats non signés
+                $contractData['adminSignatureBase64'] = '';
+                $contractData['employeeSignatureBase64'] = '';
+                \Log::info('Prévisualisation PDF - Signatures non incluses (contrat non signé)', [
+                    'status' => $contract->status
+                ]);
+            }
+            
+            // Ajouter date de génération
+            $contractData['generatedAt'] = now()->format('d/m/Y H:i:s');
+            
+            // Pour les avenants, ajouter les données spécifiques
+            if ($contract->isAvenant()) {
+                $contractData['avenant_number'] = $contract->avenant_number;
+                $contractData['employee_name'] = $contract->data->full_name ?? $contract->user->name;
+                $contractData['employee_gender'] = $contract->data->gender ?? 'M';
+                $contractData['contract_date'] = $contract->parentContract->data->contract_signing_date ?? now();
+                $contractData['effective_date'] = $contract->data->effective_date ?? now();
+                $contractData['signing_date'] = $contract->data->contract_signing_date ?? now();
+                $contractData['new_hours'] = $contract->data->work_hours ?? '';
+                $contractData['new_salary'] = $contract->data->monthly_gross_salary ?? '';
+                $contractData['monthly_hours'] = $contract->data->monthly_hours ?? '';
+                
+                // Générer le HTML avec le template d'avenant
+                $html = view('pdf.avenant-template', $contractData)->render();
+            } else {
+                // Générer le HTML avec le template Blade (utiliser le template CDI)
+                $html = view('pdf.cdi-template', $contractData)->render();
+            }
+            
+            // Créer le PDF
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html);
+            $pdf->setPaper('a4');
+            
+            // Générer un nom de fichier pour le document PDF
+            $filename = 'contrat_' . $contract->id . '_' . str_replace(' ', '_', $contract->user->name ?? 'employe') . '_preview.pdf';
+            
+            // Créer le répertoire si nécessaire avec les bonnes permissions
+            $tempDir = storage_path('app/temp');
+            if (!file_exists($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
+            
+            // Sauvegarder le PDF temporaire
+            $pdfPath = storage_path('app/temp/' . $filename);
+            $pdf->save($pdfPath);
+            
+            // Retourner le PDF pour prévisualisation
+            return response()->file($pdfPath);
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors de la prévisualisation du contrat: ' . $e->getMessage(), [
+                'contract_id' => $contract->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return back()->with('error', 'Erreur lors de la prévisualisation du contrat.');
+        }
+    }
+
+    /**
      * Permet le téléchargement du document final du contrat
      */
     public function download(Contract $contract)
@@ -478,15 +687,31 @@ class ContractController extends Controller
         if (!auth()->user()->is_admin && auth()->id() !== $contract->user_id) {
             return redirect()->route('home')->with('status', 'Vous n\'êtes pas autorisé à télécharger ce contrat.');
         }
-        
+
         try {
             // Augmenter le temps d'exécution maximum pour éviter les timeouts
             set_time_limit(300);
             ini_set('memory_limit', '512M');
+
+            // Si le contrat a déjà un document final et qu'il est accessible, le télécharger directement
+            if ($contract->final_document_path && Storage::exists($contract->final_document_path)) {
+                $path = storage_path('app/' . $contract->final_document_path);
+                \Log::info('Téléchargement du contrat', ['path' => $path, 'exists' => file_exists($path)]);
+                $filename = 'contrat_' . $contract->id . '_' . str_replace(' ', '_', $contract->user->name) . '.pdf';
+                
+                return response()->download($path, $filename, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'attachment; filename="' . $filename . '"'
+                ]);
+                } else {
+                \Log::warning('Tentative de téléchargement d\'un contrat inexistant', [
+                    'contract_id' => $contract->id,
+                    'final_document_path' => $contract->final_document_path,
+                    'exists' => $contract->final_document_path ? Storage::exists($contract->final_document_path) : false
+                ]);
+            }
             
-            // Charger les données du contrat
-            $contract->load(['user', 'data']);
-            
+            // Si le document n'existe pas, le générer
             // Créer un nouveau document PHPWord
             $phpWord = new \PhpOffice\PhpWord\PhpWord();
             
@@ -495,349 +720,85 @@ class ContractController extends Controller
             $phpWord->setDefaultFontSize(11);
 
             // Ajouter une section
-            $section = $phpWord->addSection();
+            $section = $phpWord->addSection([
+                'marginTop' => 600,
+                'marginLeft' => 600,
+                'marginRight' => 600,
+                'marginBottom' => 600
+            ]);
             
-            // Ajouter le titre
-            $section->addText('CONTRAT DE TRAVAIL A DUREE INDETERMINEE', 
-                ['bold' => true, 'size' => 14], 
-                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
-            );
+            // Charger les données du contrat
+            $contract->load(['user', 'data']);
+            
+            // Générer le contenu du contrat (simplifié pour l'exemple)
+            $section->addText('CONTRAT DE TRAVAIL', ['bold' => true, 'size' => 16], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $section->addTextBreak(2);
             
-            // Introduction
-            $section->addText('Entre Les Soussignés :', ['bold' => true]);
-            $section->addTextBreak();
-            
-            // Informations de la société
-            $section->addText('La Société WHAT EVER SAS, société à responsabilité limitée au capital de 200 000 Euros dont le siège social est situé 54 Avenue Kléber 75016 PARIS,');
-            $section->addText('Immatriculée au Registre du Commerce et des Sociétés de Paris sous le n° 439 077 462 00026,');
-            $section->addText('Représentée par Monsieur BRIAND Grégory ayant tous pouvoirs à l\'effet des présentes,');
-            $section->addText('Cotisant à l\'URSSAF de Paris sous le n° 758 2320572850010116');
-            $section->addText('d\'une part,');
-            $section->addTextBreak();
-            
-            $section->addText('et,');
-            $section->addTextBreak();
-            
-            // Informations de l'employé
-            $gender = ($contract->data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame';
-            $fullName = $contract->data->full_name ?? ($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? '');
-            $birthDate = $contract->data->birth_date ? date('d/m/Y', strtotime($contract->data->birth_date)) : '___________';
-            $birthPlace = $contract->data->birth_place ?? '___________';
-            $nationality = $contract->data->nationality ?? '___________';
-            $ssn = $contract->data->social_security_number ?? '___________';
-            $address = $contract->data->address ?? '___________';
-            $postalCode = $contract->data->postal_code ?? '___________';
-            $city = $contract->data->city ?? '___________';
-            
-            $section->addText("$gender $fullName");
-            $section->addText("Né" . ($gender !== 'Monsieur' ? 'e' : '') . " le $birthDate à $birthPlace,");
-            $section->addText("De nationalité $nationality,");
-            $section->addText("Numéro Sécurité Sociale : $ssn");
-            $section->addText("Demeurant : $address, $postalCode $city");
-            $section->addText("d'autre part,");
-            $section->addTextBreak();
-            
-            $section->addText("Il a été convenu ce qui suit :");
-            $section->addTextBreak();
-            
-            // Articles du contrat
-            $section->addText("ARTICLE 1 - ENGAGEMENT", ['bold' => true]);
-            $section->addText("Le présent contrat est régi par les dispositions de la convention collective de la restauration rapide et du code du travail avec pour obligation de s'acquitter des avantages repas s'ils sont consommés, ou alors de recevoir une indemnité compensatoire, si les créneaux horaires de travail le justifient.");
-            $section->addTextBreak();
-            
-            $section->addText("ARTICLE 2 - DUREE DU CONTRAT - PÉRIODE D'ESSAI", ['bold' => true]);
-            $signingDate = $contract->data->contract_signing_date ? date('d/m/Y', strtotime($contract->data->contract_signing_date)) : '___________';
-            $trialMonths = $contract->data->trial_period_months ?? '___________';
-            $trialEndDate = $contract->data->trial_period_end_date ? date('d/m/Y', strtotime($contract->data->trial_period_end_date)) : '___________';
-            
-            $section->addText("Le présent contrat est conclu pour une durée indéterminée à compter du $signingDate.");
-            $section->addText("Il ne deviendra définitif qu'à l'issue d'une période d'essai de $trialMonths, soit jusqu'au $trialEndDate, renouvelable 1 mois.");
-            $section->addText("Durant cette période, chacune des parties pourra, à tout moment, mettre fin au présent contrat sans qu'aucune indemnité ni préavis ne soient dus.");
-            $section->addText("Au-delà de la période d'essai, le présent contrat pourra être rompu à tout moment par l'une ou l'autre des parties, moyennant un préavis dont la durée, en cas de licenciement ou de démission est fixée comme suit :");
-            $section->addText("- pour le personnel de moins de six mois d'ancienneté dans l'entreprise : huit jours.");
-            $section->addText("- pour le personnel ayant de six mois à deux ans d'ancienneté : quinze jours pour démission, un mois pour licenciement.");
-            $section->addText("- pour le personnel ayant au moins deux ans d'ancienneté : un mois pour démission, deux mois pour licenciement.");
-            $section->addTextBreak();
-            
-            // Article 3
-            $section->addText("ARTICLE 3 - FONCTIONS", ['bold' => true]);
-            $section->addText("$gender $fullName est employé(e) en qualité d'Employée de restauration.");
-            $section->addText("$gender $fullName exercera ses fonctions dans le cadre des directives écrites ou verbales qui lui seront données par M Briand ou toute personne qui pourrait lui être substituée.");
-            $section->addTextBreak();
-            
-            // Article 4
-            $section->addText("ARTICLE 4 - REMUNERATION", ['bold' => true]);
-            $salary = $contract->data->monthly_gross_salary ?? '___________';
-            $monthlyHours = $contract->data->monthly_hours ?? '___________';
-            $section->addText("La rémunération mensuelle brute de $gender $fullName sera de $salary euros pour $monthlyHours heures mensuel.");
-            $section->addTextBreak();
-            
-            // Article 5
-            $section->addText("ARTICLE 5 - HORAIRES DE TRAVAIL", ['bold' => true]);
-            $weeklyHours = $contract->data->weekly_hours ?? '___________';
-            $section->addText("La durée de travail sera de $gender $fullName de $weeklyHours heures hebdomadaires, réparties du lundi au dimanche.");
-            $section->addText("Les jours et horaires de travail seront indiqués à $gender $fullName, par le biais de plannings hebdomadaires, établis et affichés à l'avance, dans chaque établissement.");
-            $section->addText("Il est convenu que l'horaire de travail de $gender $fullName sera susceptible de modifications en fonction des nécessités d'organisation du service et des conditions particulières de travail.");
-            
-            // Calcul des heures complémentaires (20% des heures hebdomadaires)
-            $weeklyOvertimeLimit = $weeklyHours * 0.2;
-            $monthlyOvertimeLimit = $weeklyOvertimeLimit * 4;
-            $weeklyOvertimeLimit = number_format($weeklyOvertimeLimit, 2);
-            $monthlyOvertimeLimit = number_format($monthlyOvertimeLimit, 2);
-            
-            $section->addText("Par ailleurs, $gender $fullName pourra être amenée à effectuer, à titre exceptionnel, un quota d'heures complémentaires. Ce dernier ne pouvant excéder 20% du quota d'heures mensuelles de la salariée, soit par $weeklyOvertimeLimit semaine ($monthlyOvertimeLimit par mois).");
-            $section->addTextBreak();
-            
-            // Article 6
-            $section->addText("ARTICLE 6 – CONFIDENTIALITE", ['bold' => true]);
-            $section->addText("$gender $fullName s'engage à observer la discrétion la plus stricte sur les informations se rapportant aux activités de la société et de ses clients auxquelles elle aura accès à l'occasion et dans le cadre de ses fonctions.");
-            $section->addTextBreak();
-            
-            // Article 7
-            $section->addText("ARTICLE 7- LIEU DE TRAVAIL", ['bold' => true]);
-            $section->addText("$gender $fullName sera amenée à exercer ses fonctions dans les différents établissements de notre enseigne : 360 rue de Flins, 78410 Bouafle, 54 avenue de Kléber 75016 Paris, 4 rue de Londres 75009 Paris, 135 rue Montmartre 75002 Paris, 23 rue Taitbout 75009 Paris, 7 rue de Petites Ecuries Paris 10, 38 rue Ybry Neuilly sur Seine, 24 rue du 4 Septembre, ainsi que sur nos différents stands au cours d'événements ponctuels.");
-            $section->addTextBreak();
-            
-            // Article 8
-            $section->addText("ARTICLE 8 – OBLIGATIONS de $gender $fullName", ['bold' => true]);
-            $section->addText("Pendant la durée de son contrat $gender $fullName s'engage à respecter les instructions qui pourront lui être données par la société et à se conformer aux règles relatives à l'organisation et au fonctionnement interne de la société.");
-            $section->addText("En cas d'empêchement pour lui d'effectuer son travail, $gender $fullName est tenue d'en aviser la société dans les 48 heures, en indiquant la durée prévisible de cet empêchement.");
-            $section->addText("Si cette absence est justifiée par la maladie ou l'accident, $gender $fullName devra en outre faire parvenir un certificat médical indiquant la durée probable du repos dans les 3 jours.");
-            $section->addText("La même formalité est requise en cas de prolongation de l'arrêt de travail.");
-            $section->addText("$gender $fullName devra informer la société de tous changements qui interviendraient dans les situations qu'elle a signalées lors de son engagement.");
-            $section->addText("$gender $fullName s'engage à respecter scrupuleusement les normes et directives de qualité des tâches qui lui seront imparties.");
-            $section->addText("Des défauts de qualité graves ou répétés pourront entraîner des sanctions disciplinaires.");
-            $section->addTextBreak();
-            
-            // Article 9
-            $section->addText("ARTICLE 9 - CONDITIONS D'EXÉCUTION DU CONTRAT", ['bold' => true]);
-            $section->addText("$gender $fullName s'engage à se conformer aux instructions de la Direction.");
-            $section->addText("Compte tenu de la nature de son emploi comportant un contact permanent avec la clientèle et de la nécessité pour la société de conserver sa bonne image de marque, $gender $fullName s'engage à porter en toutes circonstances une tenue correcte et de bon aloi.");
-            $section->addText("Le refus de se conformer à ces prescriptions sera constitutif d'une faute susceptible d'être sanctionnée.");
-            $section->addText("$gender $fullName devra faire connaître à l'entreprise sans délai toute modification postérieure à son engagement qui pourrait intervenir dans son état civil, sa situation de famille, son adresse.");
-            $section->addTextBreak();
-            
-            // Article 10
-            $section->addText("ARTICLE 10 - CONGÉS PAYÉS", ['bold' => true]);
-            $section->addText("$gender $fullName bénéficiera des congés payés légaux, soit trente jours ouvrables par période du 1er juin au 31 mai suivant.");
-            $section->addText("La période de congés payés sera fixée chaque année en tenant compte des nécessités du service.");
-            $section->addTextBreak();
-            
-            // Article 11
-            $section->addText("ARTICLE 11 - STATUT", ['bold' => true]);
-            $section->addText("$gender $fullName bénéficiera des lois sociales instituées en faveur des salariés, notamment en matière de Sécurité Sociale et en ce qui concerne le régime de retraite complémentaire pour lequel elle est affiliée.");
-            $section->addText("$gender $fullName relève de la catégorie \"employé\" et sera affiliée dès son entrée au sein de la société au contrat retraite complémentaire Humanis.");
-            $section->addText("$gender $fullName relève de la catégorie \"employé\" et sera affiliée dès son entrée au sein de la société au contrat Prévoyance AG2R.");
-            $section->addText("$gender $fullName relève de la catégorie \"employé\" et sera affiliée dès son entrée au sein de la société à la Mutuelle APRIL ENTREPRISE.");
-            $section->addText("Pour toutes les dispositions non prévues par les présentes, les parties déclarent se référer à la convention collective de la restauration rapide, au code du travail ainsi qu'aux lois et règlements applicables dans la société.");
-            $section->addTextBreak();
-            
-            // Signatures
-            $section->addText("Fait en double exemplaire originaux dont un pour chacune des parties.", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $section->addText("A Paris, le " . date('d/m/Y'), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $section->addTextBreak(2);
-            
-            // Créer une table pour les signatures
-            $table = $section->addTable(['borderSize' => 0, 'cellMargin' => 80]);
-            $table->addRow();
-            
-            // Cellule pour la signature de l'employeur
-            $cell1 = $table->addCell(4000, ['valign' => 'center']);
-            $cell1->addText('L\'employeur', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $cell1->addText('M BRIAND Grégory', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $cell1->addText('Pour la société', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            
-            // Insérer l'image de signature de l'administrateur
-            $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
-            if (file_exists($adminSignaturePath)) {
-                try {
-                    $tempDir = sys_get_temp_dir();
-                    $tempImagePath = $tempDir . '/admin_signature_' . time() . '.png';
-                    copy($adminSignaturePath, $tempImagePath);
-                    
-                    $cell1->addImage(
-                        $tempImagePath,
-                        ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
-                    );
-                    
-                    // Si la signature a une date
-                    if ($contract->admin_signed_at) {
-                        $cell1->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->admin_signed_at)), 
-                            ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                    }
-                } catch (\Exception $e) {
-                    \Log::error('Erreur lors de l\'ajout de l\'image de signature admin: ' . $e->getMessage());
-                    // Fallback à la version texte
-                    $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
-                        ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                    $cell1->addText('Grégory BRIAND', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            // Ajouter les informations du contrat
+            if ($contract->data) {
+                $fullName = $contract->data->full_name ?? $contract->user->name;
+                $section->addText("Employé: $fullName");
+                
+                if ($contract->data->work_hours) {
+                    $section->addText("Heures de travail: {$contract->data->work_hours} heures par semaine");
                 }
-            } else {
-                // Fallback si l'image n'existe pas
-                $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
-                    ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                $cell1->addText('Grégory BRIAND', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                
+                if ($contract->data->monthly_gross_salary) {
+                    $section->addText("Salaire brut mensuel: {$contract->data->monthly_gross_salary} €");
+                }
             }
             
-            // Cellule pour l'espace entre les signatures
-            $table->addCell(1000);
+            // Générer un nom de fichier pour le document PDF
+            $filename = 'contrat_' . $contract->id . '_' . str_replace(' ', '_', $contract->user->name ?? 'employe') . '.pdf';
             
-            // Cellule pour la signature de l'employé
-            $cell2 = $table->addCell(4000, ['valign' => 'center']);
-            $cell2->addText('L\'employé(e)', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            
-            // Si l'employé a signé
-            if ($contract->employee_signed_at && $contract->user_id) {
-                // Chercher l'image de signature de l'employé
-                $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
-                if (file_exists($employeeSignaturePath)) {
-                    try {
-                        $tempDir = sys_get_temp_dir();
-                        $tempImagePath = $tempDir . '/employee_signature_' . time() . '.png';
-                        copy($employeeSignaturePath, $tempImagePath);
-                        
-                        $cell2->addImage(
-                            $tempImagePath,
-                            ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
-                        );
-                        
-                        // Ajouter la date de signature
-                        $cell2->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->employee_signed_at)), 
-                            ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                    } catch (\Exception $e) {
-                        \Log::error('Erreur lors de l\'ajout de l\'image de signature employé: ' . $e->getMessage());
-                        // Fallback à la version texte
-                        $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
-                            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                        $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), 
-                            ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                    }
-                } else {
-                    // Fallback si l'image n'existe pas
-                    $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
-                        ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                    $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), 
-                        ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                }
-            } else {
-                $cell2->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                $cell2->addText('(Signature non apposée)', ['italic' => true, 'size' => 8], 
-                    ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            // Créer les répertoires nécessaires
+            if (!file_exists(storage_path('app/temp'))) {
+                mkdir(storage_path('app/temp'), 0755, true);
             }
             
-            // Ajouter la section finale avec la déclaration
-            $section->addTextBreak(2);
-            
-            // Récupérer les dates
-            $contractStartDate = $contract->data->contract_start_date ? date('d/m/Y', strtotime($contract->data->contract_start_date)) : date('d/m/Y');
-            $birthDate = $contract->data->birth_date ? date('d/m/Y', strtotime($contract->data->birth_date)) : '___________';
-            $birthPlace = $contract->data->birth_place ?? '___________';
-            $weeklyHours = $contract->data->weekly_hours ?? '___________';
-            
-            // Ajouter la déclaration finale
-            $section->addText("Paris le $contractStartDate", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $section->addTextBreak();
-            $section->addText("Je soussigné, $gender $fullName, né(e) le $birthDate à $birthPlace souhaite ne solliciter un poste que de $weeklyHours semaine au sein de la société Whatever, pour le moment.", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-            $section->addTextBreak();
-            $section->addText("Cordialement", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-            $section->addTextBreak(2);
-            
-            // Ajouter un espace pour la signature finale de l'employé
-            // Vérifier si l'employé a une signature
-            if ($contract->employee_signed_at && $contract->user_id) {
-                $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
-                if (file_exists($employeeSignaturePath)) {
-                    try {
-                        $tempDir = sys_get_temp_dir();
-                        $tempImagePath = $tempDir . '/employee_signature_final_' . time() . '.png';
-                        copy($employeeSignaturePath, $tempImagePath);
-                        
-                        $section->addImage(
-                            $tempImagePath,
-                            ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]
-                        );
-                    } catch (\Exception $e) {
-                        \Log::error('Erreur lors de l\'ajout de l\'image de signature employé finale: ' . $e->getMessage());
-                        $section->addText("Signature de l'employé", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                        $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                    }
-                } else {
-                    $section->addText("Signature de l'employé", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                    $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                }
-            } else {
-                $section->addText("Signature de l'employé", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-            }
-            
-            // Ajouter la signature de l'employeur sur la même page
-            $section->addTextBreak(2);
-            $section->addText("Pour validation par l'employeur:", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-            $section->addTextBreak();
-            
-            // Vérifier si l'administrateur a une signature
-            $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
-            if (file_exists($adminSignaturePath)) {
-                try {
-                    $tempDir = sys_get_temp_dir();
-                    $tempImagePath = $tempDir . '/admin_signature_final_' . time() . '.png';
-                    copy($adminSignaturePath, $tempImagePath);
-                    
-                    $section->addImage(
-                        $tempImagePath,
-                        ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]
-                    );
-                    
-                    if ($contract->admin_signed_at) {
-                        $section->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->admin_signed_at)), 
-                            ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                    }
-                } catch (\Exception $e) {
-                    \Log::error('Erreur lors de l\'ajout de l\'image de signature admin finale: ' . $e->getMessage());
-                    $section->addText("Signature de l'employeur", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                    $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                }
-            } else {
-                $section->addText("Signature de l'employeur", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-            }
-            
-            // Générer un nom de fichier pour le document Word
-            $filename = 'contrat_' . $contract->id . '_' . ($contract->user->name ?? 'employe') . '.docx';
-            $filePath = storage_path('app/contracts/' . $filename);
-            
-            // Créer le répertoire si nécessaire
             if (!file_exists(storage_path('app/contracts'))) {
                 mkdir(storage_path('app/contracts'), 0755, true);
             }
             
-            // Sauvegarder le document
+            $tempWordPath = storage_path('app/temp/temp_word_' . time() . '.docx');
+            $pdfPath = storage_path('app/temp/' . $filename);
+            $finalPath = 'contracts/' . $filename;
+            $finalFullPath = storage_path('app/' . $finalPath);
+            
+            // Sauvegarder le document Word temporaire
             $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
-            $objWriter->save($filePath);
+            $objWriter->save($tempWordPath);
             
-            // Mettre à jour le chemin du document final dans la base de données
-            $contract->final_document_path = 'contracts/' . $filename;
+            // Configurer le moteur de rendu PDF
+            Settings::setPdfRendererName(Settings::PDF_RENDERER_DOMPDF);
+            Settings::setPdfRendererPath(base_path('vendor/dompdf/dompdf'));
             
-            // Si les deux signatures sont présentes et que le statut n'est pas déjà "completed"
-            if (!empty($contract->employee_signature) && !empty($contract->admin_signature) && $contract->status !== 'completed') {
-                $contract->status = 'completed';
-            }
+            // Convertir en PDF
+            $pdfWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'PDF');
+            $pdfWriter->save($pdfPath);
             
-            // Mettre à jour la date de génération
+            // Copier le fichier temporaire vers son emplacement final
+            copy($pdfPath, $finalFullPath);
+            
+            // Mettre à jour le chemin dans la base de données
+            $contract->final_document_path = $finalPath;
             $contract->generated_at = now();
             $contract->save();
             
-            // Retourner le document pour téléchargement
-            return response()->download($filePath, $filename, [
-                'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            // Supprimer le fichier Word temporaire
+            if (file_exists($tempWordPath)) {
+                unlink($tempWordPath);
+            }
+            
+            // Retourner le PDF pour téléchargement
+            return response()->download($pdfPath, $filename, [
+                'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'attachment; filename="' . $filename . '"'
-            ]);
+            ])->deleteFileAfterSend(true);
             
         } catch (\Exception $e) {
-            \Log::error('Erreur téléchargement Word: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
-            return redirect()->back()->with('error', 'Erreur lors de la génération du document Word: ' . $e->getMessage());
+            \Log::error('Erreur lors de la génération du contrat: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Erreur lors du téléchargement du contrat: ' . $e->getMessage());
         }
     }
 
@@ -865,381 +826,179 @@ class ContractController extends Controller
     }
 
     /**
-     * Prévisualise le contrat
-     */
-    public function preview(Contract $contract)
-    {
-        // Vérifier que l'utilisateur est autorisé à voir ce contrat
-        if (!auth()->user()->is_admin && auth()->id() !== $contract->user_id) {
-            abort(403, 'Vous n\'êtes pas autorisé à accéder à ce contrat.');
-        }
-        
-        // Charger les données du contrat
-        $contract->load(['user', 'data']);
-        
-        try {
-            // Créer un nouveau document PHPWord
-            $phpWord = new \PhpOffice\PhpWord\PhpWord();
-            
-            // Définir les styles de base
-            $phpWord->setDefaultFontName('Arial');
-            $phpWord->setDefaultFontSize(11);
-
-            // Ajouter une section
-            $section = $phpWord->addSection();
-            
-            // Ajouter le titre
-            $section->addText('CONTRAT DE TRAVAIL A DUREE INDETERMINEE', 
-                ['bold' => true, 'size' => 14], 
-                ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
-            );
-            $section->addTextBreak(2);
-            
-            // Introduction
-            $section->addText('Entre Les Soussignés :', ['bold' => true]);
-            $section->addTextBreak();
-            
-            // Informations de la société
-            $section->addText('La Société WHAT EVER SAS, société à responsabilité limitée au capital de 200 000 Euros dont le siège social est situé 54 Avenue Kléber 75016 PARIS,');
-            $section->addText('Immatriculée au Registre du Commerce et des Sociétés de Paris sous le n° 439 077 462 00026,');
-            $section->addText('Représentée par Monsieur BRIAND Grégory ayant tous pouvoirs à l\'effet des présentes,');
-            $section->addText('Cotisant à l\'URSSAF de Paris sous le n° 758 2320572850010116');
-            $section->addText('d\'une part,');
-            $section->addTextBreak();
-            
-            $section->addText('et,');
-            $section->addTextBreak();
-            
-            // Informations de l'employé
-            $gender = ($contract->data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame';
-            $fullName = $contract->data->full_name ?? ($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? '');
-            $birthDate = $contract->data->birth_date ? date('d/m/Y', strtotime($contract->data->birth_date)) : '___________';
-            $birthPlace = $contract->data->birth_place ?? '___________';
-            $nationality = $contract->data->nationality ?? '___________';
-            $ssn = $contract->data->social_security_number ?? '___________';
-            $address = $contract->data->address ?? '___________';
-            $postalCode = $contract->data->postal_code ?? '___________';
-            $city = $contract->data->city ?? '___________';
-            
-            $section->addText("$gender $fullName");
-            $section->addText("Né" . ($gender !== 'Monsieur' ? 'e' : '') . " le $birthDate à $birthPlace,");
-            $section->addText("De nationalité $nationality,");
-            $section->addText("Numéro Sécurité Sociale : $ssn");
-            $section->addText("Demeurant : $address, $postalCode $city");
-            $section->addText("d'autre part,");
-            $section->addTextBreak();
-            
-            $section->addText("Il a été convenu ce qui suit :");
-            $section->addTextBreak();
-            
-            // Articles du contrat
-            $section->addText("ARTICLE 1 - ENGAGEMENT", ['bold' => true]);
-            $section->addText("Le présent contrat est régi par les dispositions de la convention collective de la restauration rapide et du code du travail avec pour obligation de s'acquitter des avantages repas s'ils sont consommés, ou alors de recevoir une indemnité compensatoire, si les créneaux horaires de travail le justifient.");
-            $section->addTextBreak();
-            
-            $section->addText("ARTICLE 2 - DUREE DU CONTRAT - PÉRIODE D'ESSAI", ['bold' => true]);
-            $signingDate = $contract->data->contract_signing_date ? date('d/m/Y', strtotime($contract->data->contract_signing_date)) : '___________';
-            $trialMonths = $contract->data->trial_period_months ?? '___________';
-            $trialEndDate = $contract->data->trial_period_end_date ? date('d/m/Y', strtotime($contract->data->trial_period_end_date)) : '___________';
-            
-            $section->addText("Le présent contrat est conclu pour une durée indéterminée à compter du $signingDate.");
-            $section->addText("Il ne deviendra définitif qu'à l'issue d'une période d'essai de $trialMonths, soit jusqu'au $trialEndDate, renouvelable 1 mois.");
-            $section->addText("Durant cette période, chacune des parties pourra, à tout moment, mettre fin au présent contrat sans qu'aucune indemnité ni préavis ne soient dus.");
-            $section->addText("Au-delà de la période d'essai, le présent contrat pourra être rompu à tout moment par l'une ou l'autre des parties, moyennant un préavis dont la durée, en cas de licenciement ou de démission est fixée comme suit :");
-            $section->addText("- pour le personnel de moins de six mois d'ancienneté dans l'entreprise : huit jours.");
-            $section->addText("- pour le personnel ayant de six mois à deux ans d'ancienneté : quinze jours pour démission, un mois pour licenciement.");
-            $section->addText("- pour le personnel ayant au moins deux ans d'ancienneté : un mois pour démission, deux mois pour licenciement.");
-            $section->addTextBreak();
-            
-            // Article 3
-            $section->addText("ARTICLE 3 - FONCTIONS", ['bold' => true]);
-            $section->addText("$gender $fullName est employé(e) en qualité d'Employée de restauration.");
-            $section->addText("$gender $fullName exercera ses fonctions dans le cadre des directives écrites ou verbales qui lui seront données par M Briand ou toute personne qui pourrait lui être substituée.");
-            $section->addTextBreak();
-            
-            // Article 4
-            $section->addText("ARTICLE 4 - REMUNERATION", ['bold' => true]);
-            $salary = $contract->data->monthly_gross_salary ?? '___________';
-            $monthlyHours = $contract->data->monthly_hours ?? '___________';
-            $section->addText("La rémunération mensuelle brute de $gender $fullName sera de $salary euros pour $monthlyHours heures mensuel.");
-            $section->addTextBreak();
-            
-            // Article 5
-            $section->addText("ARTICLE 5 - HORAIRES DE TRAVAIL", ['bold' => true]);
-            $weeklyHours = $contract->data->weekly_hours ?? '___________';
-            $section->addText("La durée de travail sera de $gender $fullName de $weeklyHours heures hebdomadaires, réparties du lundi au dimanche.");
-            $section->addText("Les jours et horaires de travail seront indiqués à $gender $fullName, par le biais de plannings hebdomadaires, établis et affichés à l'avance, dans chaque établissement.");
-            $section->addText("Il est convenu que l'horaire de travail de $gender $fullName sera susceptible de modifications en fonction des nécessités d'organisation du service et des conditions particulières de travail.");
-            
-            // Calcul des heures complémentaires (20% des heures hebdomadaires)
-            $weeklyOvertimeLimit = $weeklyHours * 0.2;
-            $monthlyOvertimeLimit = $weeklyOvertimeLimit * 4;
-            $weeklyOvertimeLimit = number_format($weeklyOvertimeLimit, 2);
-            $monthlyOvertimeLimit = number_format($monthlyOvertimeLimit, 2);
-            
-            $section->addText("Par ailleurs, $gender $fullName pourra être amenée à effectuer, à titre exceptionnel, un quota d'heures complémentaires. Ce dernier ne pouvant excéder 20% du quota d'heures mensuelles de la salariée, soit par $weeklyOvertimeLimit semaine ($monthlyOvertimeLimit par mois).");
-            $section->addTextBreak();
-            
-            // Article 6
-            $section->addText("ARTICLE 6 – CONFIDENTIALITE", ['bold' => true]);
-            $section->addText("$gender $fullName s'engage à observer la discrétion la plus stricte sur les informations se rapportant aux activités de la société et de ses clients auxquelles elle aura accès à l'occasion et dans le cadre de ses fonctions.");
-            $section->addTextBreak();
-            
-            // Article 7
-            $section->addText("ARTICLE 7- LIEU DE TRAVAIL", ['bold' => true]);
-            $section->addText("$gender $fullName sera amenée à exercer ses fonctions dans les différents établissements de notre enseigne : 360 rue de Flins, 78410 Bouafle, 54 avenue de Kléber 75016 Paris, 4 rue de Londres 75009 Paris, 135 rue Montmartre 75002 Paris, 23 rue Taitbout 75009 Paris, 7 rue de Petites Ecuries Paris 10, 38 rue Ybry Neuilly sur Seine, 24 rue du 4 Septembre, ainsi que sur nos différents stands au cours d'événements ponctuels.");
-            $section->addTextBreak();
-            
-            // Article 8
-            $section->addText("ARTICLE 8 – OBLIGATIONS de $gender $fullName", ['bold' => true]);
-            $section->addText("Pendant la durée de son contrat $gender $fullName s'engage à respecter les instructions qui pourront lui être données par la société et à se conformer aux règles relatives à l'organisation et au fonctionnement interne de la société.");
-            $section->addText("En cas d'empêchement pour lui d'effectuer son travail, $gender $fullName est tenue d'en aviser la société dans les 48 heures, en indiquant la durée prévisible de cet empêchement.");
-            $section->addText("Si cette absence est justifiée par la maladie ou l'accident, $gender $fullName devra en outre faire parvenir un certificat médical indiquant la durée probable du repos dans les 3 jours.");
-            $section->addText("La même formalité est requise en cas de prolongation de l'arrêt de travail.");
-            $section->addText("$gender $fullName devra informer la société de tous changements qui interviendraient dans les situations qu'elle a signalées lors de son engagement.");
-            $section->addText("$gender $fullName s'engage à respecter scrupuleusement les normes et directives de qualité des tâches qui lui seront imparties.");
-            $section->addText("Des défauts de qualité graves ou répétés pourront entraîner des sanctions disciplinaires.");
-            $section->addTextBreak();
-            
-            // Article 9
-            $section->addText("ARTICLE 9 - CONDITIONS D'EXÉCUTION DU CONTRAT", ['bold' => true]);
-            $section->addText("$gender $fullName s'engage à se conformer aux instructions de la Direction.");
-            $section->addText("Compte tenu de la nature de son emploi comportant un contact permanent avec la clientèle et de la nécessité pour la société de conserver sa bonne image de marque, $gender $fullName s'engage à porter en toutes circonstances une tenue correcte et de bon aloi.");
-            $section->addText("Le refus de se conformer à ces prescriptions sera constitutif d'une faute susceptible d'être sanctionnée.");
-            $section->addText("$gender $fullName devra faire connaître à l'entreprise sans délai toute modification postérieure à son engagement qui pourrait intervenir dans son état civil, sa situation de famille, son adresse.");
-            $section->addTextBreak();
-            
-            // Article 10
-            $section->addText("ARTICLE 10 - CONGÉS PAYÉS", ['bold' => true]);
-            $section->addText("$gender $fullName bénéficiera des congés payés légaux, soit trente jours ouvrables par période du 1er juin au 31 mai suivant.");
-            $section->addText("La période de congés payés sera fixée chaque année en tenant compte des nécessités du service.");
-            $section->addTextBreak();
-            
-            // Article 11
-            $section->addText("ARTICLE 11 - STATUT", ['bold' => true]);
-            $section->addText("$gender $fullName bénéficiera des lois sociales instituées en faveur des salariés, notamment en matière de Sécurité Sociale et en ce qui concerne le régime de retraite complémentaire pour lequel elle est affiliée.");
-            $section->addText("$gender $fullName relève de la catégorie \"employé\" et sera affiliée dès son entrée au sein de la société au contrat retraite complémentaire Humanis.");
-            $section->addText("$gender $fullName relève de la catégorie \"employé\" et sera affiliée dès son entrée au sein de la société au contrat Prévoyance AG2R.");
-            $section->addText("$gender $fullName relève de la catégorie \"employé\" et sera affiliée dès son entrée au sein de la société à la Mutuelle APRIL ENTREPRISE.");
-            $section->addText("Pour toutes les dispositions non prévues par les présentes, les parties déclarent se référer à la convention collective de la restauration rapide, au code du travail ainsi qu'aux lois et règlements applicables dans la société.");
-            $section->addTextBreak();
-            
-            // Signatures
-            $section->addText("Fait en double exemplaire originaux dont un pour chacune des parties.", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $section->addText("A Paris, le " . date('d/m/Y'), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $section->addTextBreak(2);
-            
-            // Créer une table pour les signatures
-            $table = $section->addTable(['borderSize' => 0, 'cellMargin' => 80]);
-            $table->addRow();
-            
-            // Cellule pour la signature de l'employeur
-            $cell1 = $table->addCell(4000, ['valign' => 'center']);
-            $cell1->addText('L\'employeur', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $cell1->addText('M BRIAND Grégory', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $cell1->addText('Pour la société', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            
-            // Insérer l'image de signature de l'administrateur
-            $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
-            if (file_exists($adminSignaturePath)) {
-                try {
-                    $tempDir = sys_get_temp_dir();
-                    $tempImagePath = $tempDir . '/admin_signature_' . time() . '.png';
-                    copy($adminSignaturePath, $tempImagePath);
-                    
-                    $cell1->addImage(
-                        $tempImagePath,
-                        ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
-                    );
-                    
-                    // Si la signature a une date
-                    if ($contract->admin_signed_at) {
-                        $cell1->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->admin_signed_at)), 
-                            ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                    }
-                } catch (\Exception $e) {
-                    \Log::error('Erreur lors de l\'ajout de l\'image de signature admin: ' . $e->getMessage());
-                    // Fallback à la version texte
-                    $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
-                        ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                    $cell1->addText('Grégory BRIAND', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                }
-            } else {
-                // Fallback si l'image n'existe pas
-                $cell1->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
-                    ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                $cell1->addText('Grégory BRIAND', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            }
-            
-            // Cellule pour l'espace entre les signatures
-            $table->addCell(1000);
-            
-            // Cellule pour la signature de l'employé
-            $cell2 = $table->addCell(4000, ['valign' => 'center']);
-            $cell2->addText('L\'employé(e)', ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            
-            // Si l'employé a signé
-            if ($contract->employee_signed_at && $contract->user_id) {
-                // Chercher l'image de signature de l'employé
-                $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
-                if (file_exists($employeeSignaturePath)) {
-                    try {
-                        $tempDir = sys_get_temp_dir();
-                        $tempImagePath = $tempDir . '/employee_signature_' . time() . '.png';
-                        copy($employeeSignaturePath, $tempImagePath);
-                        
-                        $cell2->addImage(
-                            $tempImagePath,
-                            ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
-                        );
-                        
-                        // Ajouter la date de signature
-                        $cell2->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->employee_signed_at)), 
-                            ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                    } catch (\Exception $e) {
-                        \Log::error('Erreur lors de l\'ajout de l\'image de signature employé: ' . $e->getMessage());
-                        // Fallback à la version texte
-                        $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
-                            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                        $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), 
-                            ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                    }
-                } else {
-                    // Fallback si l'image n'existe pas
-                    $cell2->addText('SIGNATURE ÉLECTRONIQUE', ['italic' => true, 'bold' => true, 'color' => 'FFFFFF', 'bgcolor' => '333333'], 
-                        ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                    $cell2->addText(($contract->data->first_name ?? '') . ' ' . ($contract->data->last_name ?? ''), 
-                        ['bold' => true], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                }
-            } else {
-                $cell2->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-                $cell2->addText('(Signature non apposée)', ['italic' => true, 'size' => 8], 
-                    ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            }
-            
-            // Ajouter la section finale avec la déclaration
-            $section->addTextBreak(2);
-            
-            // Récupérer les dates
-            $contractStartDate = $contract->data->contract_start_date ? date('d/m/Y', strtotime($contract->data->contract_start_date)) : date('d/m/Y');
-            $birthDate = $contract->data->birth_date ? date('d/m/Y', strtotime($contract->data->birth_date)) : '___________';
-            $birthPlace = $contract->data->birth_place ?? '___________';
-            $weeklyHours = $contract->data->weekly_hours ?? '___________';
-            
-            // Ajouter la déclaration finale
-            $section->addText("Paris le $contractStartDate", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-            $section->addTextBreak();
-            $section->addText("Je soussigné, $gender $fullName, né(e) le $birthDate à $birthPlace souhaite ne solliciter un poste que de $weeklyHours semaine au sein de la société Whatever, pour le moment.", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-            $section->addTextBreak();
-            $section->addText("Cordialement", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-            $section->addTextBreak(2);
-            
-            // Ajouter un espace pour la signature finale de l'employé
-            // Vérifier si l'employé a une signature
-            if ($contract->employee_signed_at && $contract->user_id) {
-                $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
-                if (file_exists($employeeSignaturePath)) {
-                    try {
-                        $tempDir = sys_get_temp_dir();
-                        $tempImagePath = $tempDir . '/employee_signature_final_' . time() . '.png';
-                        copy($employeeSignaturePath, $tempImagePath);
-                        
-                        $section->addImage(
-                            $tempImagePath,
-                            ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]
-                        );
-                    } catch (\Exception $e) {
-                        \Log::error('Erreur lors de l\'ajout de l\'image de signature employé finale: ' . $e->getMessage());
-                        $section->addText("Signature de l'employé", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                        $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                    }
-                } else {
-                    $section->addText("Signature de l'employé", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                    $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                }
-            } else {
-                $section->addText("Signature de l'employé", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-            }
-            
-            // Ajouter la signature de l'employeur sur la même page
-            $section->addTextBreak(2);
-            $section->addText("Pour validation par l'employeur:", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-            $section->addTextBreak();
-            
-            // Vérifier si l'administrateur a une signature
-            $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
-            if (file_exists($adminSignaturePath)) {
-                try {
-                    $tempDir = sys_get_temp_dir();
-                    $tempImagePath = $tempDir . '/admin_signature_final_' . time() . '.png';
-                    copy($adminSignaturePath, $tempImagePath);
-                    
-                    $section->addImage(
-                        $tempImagePath,
-                        ['width' => 150, 'height' => 75, 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]
-                    );
-                    
-                    if ($contract->admin_signed_at) {
-                        $section->addText('Le ' . date('d/m/Y à H:i', strtotime($contract->admin_signed_at)), 
-                            ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                    }
-                } catch (\Exception $e) {
-                    \Log::error('Erreur lors de l\'ajout de l\'image de signature admin finale: ' . $e->getMessage());
-                    $section->addText("Signature de l'employeur", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                    $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                }
-            } else {
-                $section->addText("Signature de l'employeur", null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-                $section->addText('___________________', null, ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::LEFT]);
-            }
-            
-            // Générer un nom de fichier pour le document Word
-            $filename = 'contrat_' . $contract->id . '_' . time() . '.docx';
-            $filePath = storage_path('app/temp/' . $filename);
-            
-            // Créer le répertoire si nécessaire
-            if (!file_exists(storage_path('app/temp'))) {
-                mkdir(storage_path('app/temp'), 0755, true);
-            }
-            
-            // Sauvegarder le document
-            $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
-            $objWriter->save($filePath);
-            
-            // Retourner le document pour téléchargement
-            return response()->download($filePath, $filename, [
-                'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                'Content-Disposition' => 'inline; filename="' . $filename . '"'
-            ])->deleteFileAfterSend(true);
-            
-        } catch (\Exception $e) {
-            // En cas d'erreur, rediriger avec un message d'erreur
-            \Log::error('Erreur génération Word: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
-            return back()->with('error', 'Erreur lors de la génération du document: ' . $e->getMessage());
-        }
-    }
-
-    /**
      * Supprime les coordonnées bancaires d'un contrat
      */
     public function deleteBankDetails(Contract $contract)
     {
-        // Vérifier que le contrat a des données
-        if ($contract->data) {
-            // Sauvegarder l'action dans les logs
-            Log::info('Suppression des coordonnées bancaires pour le contrat #' . $contract->id . ' par l\'administrateur #' . auth()->id());
-            
-            // Supprimer les coordonnées bancaires
-            $contract->data->bank_details = null;
-            $contract->data->save();
+        if ($contract->data && $contract->data->bank_details) {
+            $contractData = $contract->data;
+            $contractData->bank_details = null;
+            $contractData->save();
             
             return redirect()->route('admin.contracts.show', $contract)
                 ->with('success', 'Les coordonnées bancaires ont été supprimées avec succès.');
         }
         
         return redirect()->route('admin.contracts.show', $contract)
-            ->with('error', 'Aucune donnée de contrat trouvée.');
+            ->with('error', 'Aucune coordonnée bancaire à supprimer.');
+    }
+
+    /**
+     * Affiche le formulaire de création d'un avenant
+     */
+    public function showCreateAvenantForm(Contract $contract)
+    {
+        // Vérifier que le contrat est à un état qui permet de créer un avenant
+        if (!in_array($contract->status, ['completed', 'employee_signed'])) {
+            return redirect()->route('admin.contracts.show', $contract)
+                ->with('error', 'Impossible de créer un avenant pour un contrat qui n\'est pas finalisé.');
+        }
+        
+        // Obtenir le numéro du prochain avenant
+        $nextAvenantNumber = Contract::getNextAvenantNumber($contract->id);
+        
+        return view('admin.contracts.create-avenant', compact('contract', 'nextAvenantNumber'));
+    }
+    
+    /**
+     * Enregistre un nouvel avenant
+     */
+    public function storeAvenant(Request $request, Contract $contract)
+    {
+        // Vérifier que le contrat est à un état qui permet de créer un avenant
+        if (!in_array($contract->status, ['completed', 'employee_signed'])) {
+            return redirect()->route('admin.contracts.show', $contract)
+                ->with('error', 'Impossible de créer un avenant pour un contrat qui n\'est pas finalisé.');
+        }
+        
+        // Valider les données de l'avenant
+        $validated = $request->validate([
+            'avenant_number' => 'required|string',
+            'effective_date' => 'required|date',
+            'signing_date' => 'required|date',
+            'new_hours' => 'required|numeric|min:0|max:40',
+            'new_salary' => 'required|numeric|min:0',
+            'new_hourly_rate' => 'required|numeric|min:0',
+        ]);
+        
+        // Créer un nouvel avenant
+        $avenant = new Contract([
+            'user_id' => $contract->user_id,
+            'admin_id' => auth()->id(),
+            'contract_template_id' => $contract->contract_template_id,
+            'parent_contract_id' => $contract->id,
+            'title' => 'Avenant n°' . $validated['avenant_number'] . ' au contrat de ' . $contract->user->name,
+            'avenant_number' => $validated['avenant_number'],
+            'contract_type' => 'avenant',
+            'status' => 'admin_signed', // L'avenant est directement signé par l'administrateur
+            'admin_signature' => 'signatures/admin_signature.png',
+            'admin_signed_at' => now(),
+        ]);
+        
+        $avenant->save();
+        
+        // Créer les données de l'avenant
+        $contractData = new ContractData([
+            'contract_id' => $avenant->id,
+            // Copier les données du contrat parent
+            'full_name' => $contract->data->full_name ?? null,
+            'first_name' => $contract->data->first_name ?? null,
+            'last_name' => $contract->data->last_name ?? null,
+            'gender' => $contract->data->gender ?? null,
+            'birth_date' => $contract->data->birth_date ?? null,
+            'birth_place' => $contract->data->birth_place ?? null,
+            'nationality' => $contract->data->nationality ?? null,
+            'address' => $contract->data->address ?? null,
+            'postal_code' => $contract->data->postal_code ?? null,
+            'city' => $contract->data->city ?? null,
+            'social_security_number' => $contract->data->social_security_number ?? null,
+            'email' => $contract->data->email ?? null,
+            'phone' => $contract->data->phone ?? null,
+            'bank_details' => $contract->data->bank_details ?? null,
+            'photo_path' => $contract->data->photo_path ?? null,
+            // Nouvelles valeurs de l'avenant
+            'work_hours' => $validated['new_hours'],
+            'hourly_rate' => $validated['new_hourly_rate'],
+            'monthly_gross_salary' => $validated['new_salary'],
+            'contract_start_date' => $contract->data->contract_start_date ?? null,
+            'contract_signing_date' => $validated['signing_date'],
+            'trial_period_months' => 0, // Pas de période d'essai pour un avenant
+            // Informations spécifiques à l'avenant
+            'effective_date' => $validated['effective_date'],
+            'original_contract_date' => $contract->data->contract_signing_date ?? null,
+        ]);
+        
+        $contractData->save();
+        
+        // Mettre à jour les champs calculés
+        $this->calculateDerivedFields($contractData);
+        
+        // Notifier l'employé
+        $contract->user->notify(new \App\Notifications\AvenantCreated($avenant));
+        
+        return redirect()->route('admin.contracts.show', $avenant)
+            ->with('success', 'L\'avenant a été créé avec succès. L\'employé doit maintenant le signer.');
+    }
+
+    /**
+     * Prévisualiser un avenant avant de le créer
+     * 
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Contract  $contract
+     * @return \Illuminate\Http\Response
+     */
+    public function previewAvenant(Request $request, Contract $contract)
+    {
+        // Valider les données du formulaire
+        $validated = $request->validate([
+            'avenant_number' => 'required|integer',
+            'effective_date' => 'required|date',
+            'signing_date' => 'required|date',
+            'new_hours' => 'nullable|numeric',
+            'new_salary' => 'nullable|numeric',
+            'new_hourly_rate' => 'nullable|numeric',
+        ]);
+        
+        // Créer un contrat temporaire pour la prévisualisation
+        $avenantData = $contract->data->toArray();
+        
+        // Mettre à jour les données avec les nouvelles valeurs d'avenant
+        if (!empty($validated['new_hours'])) {
+            $avenantData['weekly_hours'] = $validated['new_hours'];
+        }
+        
+        if (!empty($validated['new_salary'])) {
+            $avenantData['monthly_salary'] = $validated['new_salary'];
+        }
+        
+        if (!empty($validated['new_hourly_rate'])) {
+            $avenantData['hourly_rate'] = $validated['new_hourly_rate'];
+        }
+        
+        // Générer le PDF de prévisualisation
+        $pdfController = new \App\Http\Controllers\PdfController();
+        $tempContract = new Contract();
+        $tempContract->id = 'preview_' . $contract->id . '_' . time();
+        $tempContract->is_avenant = true;
+        $tempContract->avenant_number = $validated['avenant_number'];
+        $tempContract->parent_contract_id = $contract->id;
+        $tempContract->user_id = $contract->user_id;
+        $tempContract->effective_date = $validated['effective_date'];
+        $tempContract->signing_date = $validated['signing_date'];
+        
+        // Associer les données temporairement
+        $tempData = new \App\Models\ContractData();
+        foreach ($avenantData as $key => $value) {
+            $tempData->$key = $value;
+        }
+        $tempContract->setRelation('data', $tempData);
+        $tempContract->setRelation('user', $contract->user);
+        $tempContract->setRelation('parentContract', $contract);
+        
+        // Générer le PDF
+        $pdfPath = $pdfController->generateContractPdf($tempContract, true);
+        
+        // Retourner le PDF comme réponse
+        return response()->file(storage_path('app/' . $pdfPath));
     }
 }

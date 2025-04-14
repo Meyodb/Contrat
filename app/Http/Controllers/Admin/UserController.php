@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Contract;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
@@ -24,6 +25,18 @@ class UserController extends Controller
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%");
             });
+        }
+        
+        // Filtrage par statut d'archivage
+        if ($request->has('archived')) {
+            if ($request->archived === '1') {
+                $query->where('archived', true);
+            } else {
+                $query->where('archived', false);
+            }
+        } else {
+            // Par défaut, n'afficher que les utilisateurs non archivés
+            $query->where('archived', false);
         }
         
         // Filtrage par rôle
@@ -57,9 +70,12 @@ class UserController extends Controller
             $query->orderBy('created_at', 'desc');
         }
         
-        $users = $query->get();
+        $users = $query->paginate(10)->withQueryString();
         
-        return view('admin.users.index', compact('users'));
+        // Récupérer le nombre d'utilisateurs archivés pour l'affichage dans le menu
+        $archivedCount = User::where('archived', true)->count();
+        
+        return view('admin.users.index', compact('users', 'archivedCount'));
     }
 
     /**
@@ -169,5 +185,59 @@ class UserController extends Controller
 
         return redirect()->route('admin.users.index')
             ->with('status', 'Utilisateur supprimé avec succès.');
+    }
+
+    /**
+     * Affiche la liste des employés avec contrats finalisés
+     */
+    public function finalizedContracts()
+    {
+        // Récupérer les employés ayant des contrats finalisés (signés par l'employé ou complétés)
+        $users = User::whereHas('contracts', function($query) {
+            $query->whereIn('status', ['employee_signed', 'completed']);
+        })
+        ->with(['contracts' => function($query) {
+            $query->whereIn('status', ['employee_signed', 'completed'])
+                  ->with('data');
+        }])
+        ->where('archived', false)
+        ->where('is_admin', false)
+        ->orderBy('name')
+        ->get();
+
+        return view('admin.users.finalized', compact('users'));
+    }
+
+    /**
+     * Archive un utilisateur
+     */
+    public function archive(User $user)
+    {
+        // Empêcher l'archivage de son propre compte
+        if ($user->id === auth()->id()) {
+            return back()->with('error', 'Vous ne pouvez pas archiver votre propre compte.');
+        }
+
+        $user->update([
+            'archived' => true,
+            'archived_at' => now(),
+        ]);
+
+        return redirect()->route('admin.users.index')
+            ->with('status', 'Utilisateur archivé avec succès.');
+    }
+
+    /**
+     * Désarchive un utilisateur
+     */
+    public function unarchive(User $user)
+    {
+        $user->update([
+            'archived' => false,
+            'archived_at' => null,
+        ]);
+
+        return redirect()->route('admin.users.index')
+            ->with('status', 'Utilisateur désarchivé avec succès.');
     }
 }

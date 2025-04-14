@@ -6,10 +6,20 @@
         <div class="col-md-10">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Détails de l'utilisateur</h5>
-                    <span class="badge {{ $user->is_admin ? 'bg-primary' : 'bg-secondary' }}">
-                        {{ $user->is_admin ? 'Administrateur' : 'Employé' }}
-                    </span>
+                    <div>
+                        <h5 class="mb-0">Détails de l'utilisateur</h5>
+                        <span class="badge {{ $user->is_admin ? 'bg-primary' : 'bg-secondary' }}">
+                            {{ $user->is_admin ? 'Administrateur' : 'Employé' }}
+                        </span>
+                    </div>
+                    @if($user->contracts->isNotEmpty() && $user->contracts->first()->data && $user->contracts->first()->data->photo_path)
+                    <div>
+                        @php
+                            $photoFilename = basename($user->contracts->first()->data->photo_path);
+                        @endphp
+                        <img src="{{ route('employee.photo', ['filename' => $photoFilename]) }}" alt="Photo d'identité" class="img-thumbnail" style="max-height: 120px;">
+                    </div>
+                    @endif
                 </div>
                 <div class="card-body">
                     @if (session('status'))

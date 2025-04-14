@@ -52,12 +52,24 @@ Route::middleware(['auth', \App\Http\Middleware\AdminMiddleware::class])->name('
     Route::post('/contracts/{contract}/reject', [AdminContractController::class, 'reject'])->name('contracts.reject');
     Route::delete('/contracts/{contract}/bank-details', [AdminContractController::class, 'deleteBankDetails'])->name('contracts.delete-bank-details');
     
+    // Routes pour les avenants
+    Route::get('/contracts/{contract}/create-avenant', [AdminContractController::class, 'showCreateAvenantForm'])->name('contracts.create-avenant');
+    Route::post('/contracts/{contract}/create-avenant', [AdminContractController::class, 'storeAvenant'])->name('contracts.store-avenant');
+    Route::get('/contracts/{contract}/avenant/create', [AdminContractController::class, 'showCreateAvenantForm'])->name('contracts.avenant.create');
+    Route::post('/contracts/{contract}/avenant', [AdminContractController::class, 'storeAvenant'])->name('contracts.avenant.store');
+    Route::post('/contracts/{contract}/avenant/preview', [AdminContractController::class, 'previewAvenant'])->name('contracts.avenant.preview');
+    
+    // Routes pour les employés avec contrats finalisés
+    Route::get('/employees/finalized', [AdminUserController::class, 'finalizedContracts'])->name('employees.finalized');
+    
     // Routes pour les templates - désactivées
     // Route::resource('templates', AdminTemplateController::class);
     // Route::get('/templates/{template}/download', [AdminTemplateController::class, 'download'])->name('templates.download');
     
     // Routes pour les utilisateurs
     Route::resource('users', AdminUserController::class);
+    Route::put('/users/{user}/archive', [AdminUserController::class, 'archive'])->name('users.archive');
+    Route::put('/users/{user}/unarchive', [AdminUserController::class, 'unarchive'])->name('users.unarchive');
     
     // Routes pour le profil administrateur
     Route::get('/profile', [App\Http\Controllers\Admin\ProfileController::class, 'show'])->name('profile.show');
@@ -72,6 +84,10 @@ Route::middleware(['auth', \App\Http\Middleware\EmployeeMiddleware::class])->pre
     Route::get('contracts/{contract}/download', [\App\Http\Controllers\Employee\ContractController::class, 'download'])->name('contracts.download');
     Route::post('contracts/{contract}/sign', [\App\Http\Controllers\Employee\ContractController::class, 'sign'])->name('contracts.sign');
     Route::post('contracts/{contract}/submit', [\App\Http\Controllers\Employee\ContractController::class, 'submit'])->name('contracts.submit');
+    
+    // Routes pour les avenants
+    Route::get('contracts/{contract}/avenants', [\App\Http\Controllers\Employee\ContractController::class, 'contractAvenants'])->name('contracts.avenants');
+    Route::get('avenants/{avenant}', [\App\Http\Controllers\Employee\ContractController::class, 'showAvenant'])->name('avenants.show');
 });
 
 // Route temporaire pour tester la génération de contrat

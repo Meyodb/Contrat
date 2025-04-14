@@ -55,6 +55,25 @@
                         </div>
                     @endif
                     
+                    <!-- Notification spéciale pour les avenants -->
+                    @if($contract->isAvenant())
+                        <div class="alert alert-warning mb-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-1"><i class="bi bi-file-earmark-text"></i> Avenant au contrat</h5>
+                                    <p class="mb-0">Ceci est l'avenant n°{{ $contract->avenant_number }} à votre contrat principal.</p>
+                                    <p class="mb-0">
+                                        <strong>Date d'effet :</strong> 
+                                        {{ $contract->data && $contract->data->effective_date ? \Carbon\Carbon::parse($contract->data->effective_date)->format('d/m/Y') : 'Non spécifiée' }}
+                                    </p>
+                                </div>
+                                <a href="{{ route('employee.contracts.show', $contract->parentContract) }}" class="btn btn-outline-primary">
+                                    <i class="bi bi-file-earmark"></i> Voir le contrat principal
+                                </a>
+                            </div>
+                        </div>
+                    @endif
+                    
                     <!-- Étapes du processus -->
                     <div class="mb-4">
                         <div class="progress" style="height: 4px;">
@@ -247,30 +266,68 @@
                                     @if($contract->status === 'admin_signed' || $contract->status === 'employee_signed' || $contract->status === 'completed')
                                     <div class="signatures mt-5">
                                         <div class="row">
-                                            <div class="col-md-6 text-center">
-                                                <h6>Signature de l'employeur</h6>
-                                                @if($contract->admin_signature)
-                                                    <img src="{{ route('signature', ['filename' => 'admin_signature.png']) }}" alt="Signature de l'employeur" class="img-fluid" style="max-height: 100px;">
-                                                    <p class="mt-2">Signé le {{ $contract->admin_signed_at ? $contract->admin_signed_at->format('d/m/Y') : 'Date inconnue' }}</p>
-                                                    
-                                                    @if($contract->admin_signature_id)
-                                                    <div class="mt-2">
-                                                    @endif
+                                            <div class="col-md-6">
+                                                <div class="text-center mb-2">
+                                                    <h6 class="fw-bold">Signature de l'employeur</h6>
+                                                </div>
+                                                <div class="d-flex flex-column align-items-center" style="min-height: 200px;">
+                                                    <div class="mb-3">
+                                                        <p class="fw-bold text-center">M BRIAND Grégory</p>
+                                                    </div>
+                                                    <div class="signature-container text-center" style="height: 150px; width: 100%; display: flex; align-items: center; justify-content: center;">
+                                                        @if($contract->admin_signed_at && $contract->admin_signature)
+                                                            @php
+                                                                $adminSignatureFilename = basename($contract->admin_signature);
+                                                                $adminSignaturePath = 'signatures/' . $adminSignatureFilename;
+                                                                \Log::info('Affichage signature admin', [
+                                                                    'filename' => $adminSignatureFilename,
+                                                                    'path' => $adminSignaturePath,
+                                                                    'exists' => \Storage::exists('public/' . $adminSignaturePath)
+                                                                ]);
+                                                            @endphp
+                                                            <img src="{{ route('signature', ['filename' => 'admin_signature.png']) }}" 
+                                                                 alt="Signature de l'employeur" 
+                                                                 class="img-fluid" 
+                                                                 style="max-height: 150px;">
                                                     @else
                                                         <p class="text-muted">Non signé</p>
+                                                            @if(!$contract->admin_signed_at)
+                                                                <small class="text-danger">L'administrateur n'a pas encore signé</small>
+                                                            @endif
+                                                        @endif
+                                                    </div>
+                                                    @if($contract->admin_signed_at)
+                                                        <p class="small text-muted mt-2 text-center">Signé le {{ $contract->admin_signed_at ? $contract->admin_signed_at->format('d/m/Y') : 'Date inconnue' }}</p>
                                                     @endif
+                                                </div>
                                             </div>
-                                            <div class="col-md-6 text-center">
-                                                <h6>Signature de l'employé</h6>
+                                            <div class="col-md-6">
+                                                <div class="text-center mb-2">
+                                                    <h6 class="fw-bold">Signature de l'employé</h6>
+                                                </div>
+                                                <div class="d-flex flex-column align-items-center" style="min-height: 200px;">
+                                                    <div class="mb-3">
+                                                        <p class="fw-bold text-center">
+                                                            {{ $contract->data && $contract->data->full_name ? $contract->data->full_name : ($contract->user ? $contract->user->name : 'Employé') }}
+                                                        </p>
+                                                    </div>
+                                                    <div class="signature-container text-center" style="height: 150px; width: 100%; display: flex; align-items: center; justify-content: center;">
                                                 @if($contract->employee_signature)
                                                     @php
                                                         $employeeSignatureFilename = basename($contract->employee_signature);
                                                     @endphp
-                                                    <img src="{{ route('signature', ['filename' => $employeeSignatureFilename]) }}" alt="Signature de l'employé" class="img-fluid" style="max-height: 100px;">
-                                                    <p class="mt-2">Signé le {{ $contract->employee_signed_at ? $contract->employee_signed_at->format('d/m/Y') : 'Date inconnue' }}</p>
+                                                            <img src="{{ route('signature', ['filename' => $employeeSignatureFilename]) }}" 
+                                                                 alt="Signature de l'employé" 
+                                                                 class="img-fluid" 
+                                                                 style="max-height: 150px;">
                                                 @else
                                                     <p class="text-muted">Non signé</p>
                                                 @endif
+                                                    </div>
+                                                    @if($contract->employee_signed_at)
+                                                        <p class="small text-muted mt-2 text-center">Signé le {{ $contract->employee_signed_at ? $contract->employee_signed_at->format('d/m/Y') : 'Date inconnue' }}</p>
+                                                    @endif
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -286,8 +343,130 @@
                         </div>
                     </div>
                     
-                    <div class="d-flex justify-content-between mt-4">
-                        <a href="{{ url()->previous() == url()->current() ? route('home') : url()->previous() }}" class="btn btn-outline-secondary">
+                    <!-- Section des avenants -->
+                    @if($contract->avenants && $contract->avenants->count() > 0)
+                    <div class="mt-5">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="border-bottom pb-2 mb-0">Avenants à votre contrat</h6>
+                            <a href="{{ route('employee.contracts.avenants', $contract) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-clock-history"></i> Voir l'historique complet
+                            </a>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>N° Avenant</th>
+                                        <th>Date de création</th>
+                                        <th>Modifications</th>
+                                        <th>Statut</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($contract->avenants as $avenant)
+                                    <tr>
+                                        <td>{{ $avenant->avenant_number }}</td>
+                                        <td>{{ $avenant->created_at->format('d/m/Y') }}</td>
+                                        <td>
+                                            @if($avenant->data)
+                                                <ul class="mb-0 ps-3">
+                                                    <li>Horaire: {{ $avenant->data->work_hours }} h/semaine</li>
+                                                    <li>Salaire: {{ $avenant->data->monthly_gross_salary }} €/mois</li>
+                                                </ul>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($avenant->status == 'draft')
+                                                <span class="badge bg-secondary">Brouillon</span>
+                                            @elseif($avenant->status == 'submitted')
+                                                <span class="badge bg-primary">Soumis</span>
+                                            @elseif($avenant->status == 'admin_signed')
+                                                <span class="badge bg-info">À signer</span>
+                                            @elseif($avenant->status == 'employee_signed')
+                                                <span class="badge bg-success">Signé</span>
+                                            @elseif($avenant->status == 'completed')
+                                                <span class="badge bg-success">Complété</span>
+                                            @elseif($avenant->status == 'rejected')
+                                                <span class="badge bg-danger">Rejeté</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <a href="{{ route('employee.contracts.show', $avenant) }}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="bi bi-eye"></i> Voir
+                                                </a>
+                                                @if($avenant->status == 'admin_signed')
+                                                    <a href="{{ route('employee.contracts.preview', $avenant) }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+                                                        <i class="bi bi-file-earmark-pdf"></i> Prévisualiser
+                                                    </a>
+                                                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#signAvenantModal{{ $avenant->id }}">
+                                                        <i class="bi bi-pen"></i> Signer
+                                                    </button>
+                                                    
+                                                    <!-- Modal de signature pour cet avenant -->
+                                                    <div class="modal fade" id="signAvenantModal{{ $avenant->id }}" tabindex="-1" aria-labelledby="signAvenantModalLabel{{ $avenant->id }}" aria-hidden="true">
+                                                        <div class="modal-dialog modal-lg">
+                                                            <div class="modal-content">
+                                                                <div class="modal-header">
+                                                                    <h5 class="modal-title" id="signAvenantModalLabel{{ $avenant->id }}">Signer l'avenant n°{{ $avenant->avenant_number }}</h5>
+                                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                                </div>
+                                                                <div class="modal-body">
+                                                                    <div class="alert alert-info">
+                                                                        <p><strong>Important :</strong> En signant cet avenant, vous acceptez les modifications apportées à vos conditions de travail.</p>
+                                                                        <ul>
+                                                                            <li>Nouvel horaire hebdomadaire : {{ $avenant->data ? $avenant->data->work_hours : '' }} heures</li>
+                                                                            <li>Nouveau salaire mensuel brut : {{ $avenant->data ? $avenant->data->monthly_gross_salary : '' }} €</li>
+                                                                            <li>Date d'effet : {{ $avenant->data && $avenant->data->effective_date ? \Carbon\Carbon::parse($avenant->data->effective_date)->format('d/m/Y') : '' }}</li>
+                                                                        </ul>
+                                                                    </div>
+                                                                    
+                                                                    <form action="{{ route('employee.contracts.sign', $avenant) }}" method="POST" id="signatureForm{{ $avenant->id }}">
+                                                                        @csrf
+                                                                        <div class="mb-3">
+                                                                            <label class="form-label">Votre signature :</label>
+                                                                            <div id="signatureCanvas{{ $avenant->id }}" class="border rounded" style="width: 100%; height: 200px;"></div>
+                                                                            <input type="hidden" name="employee_signature" id="signatureInput{{ $avenant->id }}">
+                                                                            <div class="mt-2">
+                                                                                <button type="button" class="btn btn-outline-secondary btn-sm" id="clearSignature{{ $avenant->id }}">
+                                                                                    <i class="bi bi-eraser"></i> Effacer
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </form>
+                                                                </div>
+                                                                <div class="modal-footer">
+                                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                                                                    <button type="button" class="btn btn-success" id="submitSignature{{ $avenant->id }}">
+                                                                        <i class="bi bi-pen"></i> Signer l'avenant
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                                
+                                                @if($avenant->status == 'completed' || $avenant->status == 'employee_signed')
+                                                    <a href="{{ route('employee.contracts.download', $avenant) }}" class="btn btn-sm btn-outline-success">
+                                                        <i class="bi bi-download"></i> Télécharger
+                                                    </a>
+                                                @endif
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    @endif
+
+                </div>
+
+                <!-- Boutons d'action -->
+                <div class="card-footer d-flex justify-content-between bg-white pt-0 border-top-0">
+                    <a href="{{ route('employee.contracts.index') }}" class="btn btn-outline-secondary">
                             <i class="bi bi-arrow-left"></i> Retour
                         </a>
                         <div>
@@ -316,7 +495,6 @@
                                     <i class="bi bi-download"></i> Télécharger le contrat
                                 </a>
                             @endif
-                        </div>
                     </div>
                 </div>
             </div>
@@ -364,13 +542,11 @@
 </div>
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Vérifier si nous sommes sur une page avec un pad de signature
-        if (!document.getElementById('signature-pad')) {
-            return;
-        }
-        
+        // Vérifier si nous sommes sur une page avec un pad de signature principal
+        if (document.getElementById('signature-pad')) {
         let signaturePad = null;
         
         // Initialiser le pad de signature quand la modal est affichée
@@ -419,7 +595,7 @@
             });
         });
         
-        // Formulaire de soumission
+            // Formulaire de soumission principal
         document.getElementById('signatureForm').addEventListener('submit', function(e) {
             if (!signaturePad || signaturePad.isEmpty()) {
                 e.preventDefault();
@@ -448,6 +624,63 @@
                 return false;
             }
         });
+        }
+
+        // Initialiser les canvas de signature pour les avenants
+        @if($contract->avenants && $contract->avenants->count() > 0)
+            @foreach($contract->avenants as $avenant)
+                @if($avenant->status == 'admin_signed')
+                    // Initialiser le pad de signature pour l'avenant {{ $avenant->id }}
+                    const signatureCanvas{{ $avenant->id }} = document.getElementById('signatureCanvas{{ $avenant->id }}');
+                    if (signatureCanvas{{ $avenant->id }}) {
+                        const signaturePad{{ $avenant->id }} = new SignaturePad(signatureCanvas{{ $avenant->id }}, {
+                            backgroundColor: 'rgb(255, 255, 255)',
+                            penColor: 'rgb(0, 0, 0)'
+                        });
+                        
+                        // Bouton pour effacer la signature
+                        document.getElementById('clearSignature{{ $avenant->id }}').addEventListener('click', function() {
+                            signaturePad{{ $avenant->id }}.clear();
+                        });
+                        
+                        // Soumettre la signature
+                        document.getElementById('submitSignature{{ $avenant->id }}').addEventListener('click', function() {
+                            if (signaturePad{{ $avenant->id }}.isEmpty()) {
+                                alert('Veuillez signer le document avant de continuer.');
+                                return;
+                            }
+                            
+                            // Récupérer la signature sous forme d'image base64
+                            const signatureData = signaturePad{{ $avenant->id }}.toDataURL();
+                            document.getElementById('signatureInput{{ $avenant->id }}').value = signatureData;
+                            
+                            // Soumettre le formulaire
+                            document.getElementById('signatureForm{{ $avenant->id }}').submit();
+                        });
+                        
+                        // Ajuster la taille du canvas en fonction de la taille de son conteneur
+                        function resizeCanvas{{ $avenant->id }}() {
+                            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                            signatureCanvas{{ $avenant->id }}.width = signatureCanvas{{ $avenant->id }}.offsetWidth * ratio;
+                            signatureCanvas{{ $avenant->id }}.height = signatureCanvas{{ $avenant->id }}.offsetHeight * ratio;
+                            signatureCanvas{{ $avenant->id }}.getContext("2d").scale(ratio, ratio);
+                            signaturePad{{ $avenant->id }}.clear(); // Nécessaire après le redimensionnement
+                        }
+                        
+                        // Redimensionner au chargement
+                        resizeCanvas{{ $avenant->id }}();
+                        
+                        // Redimensionner lorsque la fenêtre change de taille
+                        window.addEventListener('resize', resizeCanvas{{ $avenant->id }});
+                        
+                        // Redimensionner lorsque le modal est affiché
+                        document.getElementById('signAvenantModal{{ $avenant->id }}').addEventListener('shown.bs.modal', function() {
+                            resizeCanvas{{ $avenant->id }}();
+                        });
+                    }
+                @endif
+            @endforeach
+        @endif
     });
 </script>
 @endpush

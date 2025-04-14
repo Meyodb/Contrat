@@ -10,8 +10,11 @@
                     <a href="{{ route('admin.contracts.index') }}" class="btn btn-outline-primary me-2">
                         <i class="bi bi-file-earmark-text"></i> Tous les contrats
                     </a>
-                    <a href="{{ route('admin.users.index') }}" class="btn btn-outline-primary">
+                    <a href="{{ route('admin.users.index') }}" class="btn btn-outline-primary me-2">
                         <i class="bi bi-people"></i> Tous les utilisateurs
+                    </a>
+                    <a href="{{ route('admin.employees.finalized') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-table"></i> Tableau d'émargement
                     </a>
                 </div>
             </div>

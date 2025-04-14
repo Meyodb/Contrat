@@ -25,6 +25,8 @@ class User extends Authenticatable
         'password',
         'is_admin',
         'signature_image',
+        'archived',
+        'archived_at',
     ];
 
     /**
@@ -46,6 +48,8 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'is_admin' => 'boolean',
+        'archived' => 'boolean',
+        'archived_at' => 'datetime',
     ];
 
     /**

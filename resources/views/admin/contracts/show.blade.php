@@ -137,39 +137,148 @@
                     </div>
                     @endif
                     
-                    <div class="d-flex justify-content-between">
-                        <a href="{{ url()->previous() == url()->current() ? route('admin.dashboard') : url()->previous() }}" class="btn btn-outline-secondary">
-                            <i class="bi bi-arrow-left"></i> Retour
-                        </a>
-                        <div>
-                            @if(in_array($contract->status, ['in_review', 'submitted']))
-                                <a href="{{ route('admin.contracts.edit', $contract) }}" class="btn btn-primary">
-                                    <i class="bi bi-pencil"></i> Modifier les informations
-                                </a>
-                                @if($contract->status == 'submitted')
-                                    <a href="{{ route('admin.contracts.preview', $contract) }}" class="btn btn-secondary" target="_blank">
-                                        <i class="bi bi-eye"></i> Prévisualiser le contrat
-                                    </a>
-                                    <form action="{{ route('admin.contracts.sign', $contract) }}" method="POST" class="d-inline">
-                                        @csrf
-                                        <button type="submit" class="btn btn-success">
-                                            <i class="bi bi-check-circle"></i> Approuver et signer
-                                        </button>
-                                    </form>
-                                @endif
-                            @endif
-                            
-                            @if($contract->status == 'completed' || $contract->status == 'employee_signed')
-                                <a href="{{ route('admin.contracts.download', $contract) }}" class="btn btn-primary ms-2">
-                                    <i class="bi bi-download"></i> Télécharger
-                                </a>
-                            @endif
-                            
-                            <button type="button" class="btn btn-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteModal">
-                                <i class="bi bi-trash"></i> Supprimer
-                            </button>
+                    @if($contract->status === 'admin_signed' || $contract->status === 'employee_signed' || $contract->status === 'completed')
+                    <div class="mb-4">
+                        <h6 class="border-bottom pb-2 mb-3">Signatures</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="text-center mb-2">
+                                    <h6 class="fw-bold">Signature de l'employeur</h6>
+                                </div>
+                                <div class="d-flex flex-column align-items-center" style="min-height: 200px;">
+                                    <div class="mb-3">
+                                        <p class="fw-bold text-center">M BRIAND Grégory</p>
+                                    </div>
+                                    <div class="signature-container text-center" style="height: 150px; width: 100%; display: flex; align-items: center; justify-content: center;">
+                                        @if($contract->admin_signed_at && $contract->admin_signature)
+                                            @php
+                                                $adminSignatureFilename = basename($contract->admin_signature);
+                                                $adminSignaturePath = 'signatures/' . $adminSignatureFilename;
+                                                \Log::info('Affichage signature admin', [
+                                                    'filename' => $adminSignatureFilename,
+                                                    'path' => $adminSignaturePath,
+                                                    'exists' => \Storage::exists('public/' . $adminSignaturePath)
+                                                ]);
+                                            @endphp
+                                            <img src="{{ route('signature', ['filename' => 'admin_signature.png']) }}" 
+                                                 alt="Signature de l'employeur" 
+                                                 class="img-fluid" 
+                                                 style="max-height: 150px;">
+                                        @else
+                                            <p class="text-muted">Non signé</p>
+                                        @endif
+                                    </div>
+                                    @if($contract->admin_signed_at)
+                                        <p class="small text-muted mt-2 text-center">Signé le {{ $contract->admin_signed_at ? $contract->admin_signed_at->format('d/m/Y') : 'Date inconnue' }}</p>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="text-center mb-2">
+                                    <h6 class="fw-bold">Signature de l'employé</h6>
+                                </div>
+                                <div class="d-flex flex-column align-items-center" style="min-height: 200px;">
+                                    <div class="mb-3">
+                                        <p class="fw-bold text-center">
+                                            {{ $contract->data && $contract->data->full_name ? $contract->data->full_name : ($contract->user ? $contract->user->name : 'Employé') }}
+                                        </p>
+                                    </div>
+                                    <div class="signature-container text-center" style="height: 150px; width: 100%; display: flex; align-items: center; justify-content: center;">
+                                        @if($contract->employee_signature)
+                                            @php
+                                                $employeeSignatureFilename = basename($contract->employee_signature);
+                                            @endphp
+                                            <img src="{{ route('signature', ['filename' => $employeeSignatureFilename]) }}" 
+                                                 alt="Signature de l'employé" 
+                                                 class="img-fluid" 
+                                                 style="max-height: 150px;">
+                                        @else
+                                            <p class="text-muted">Non signé</p>
+                                        @endif
+                                    </div>
+                                    @if($contract->employee_signed_at)
+                                        <p class="small text-muted mt-2 text-center">Signé le {{ $contract->employee_signed_at ? $contract->employee_signed_at->format('d/m/Y') : 'Date inconnue' }}</p>
+                                    @endif
+                                </div>
+                            </div>
                         </div>
                     </div>
+                    @endif
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{{ route('admin.contracts.index') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Retour à la liste
+                        </a>
+                        <div>
+                            @if($contract->status === 'completed' || $contract->status === 'employee_signed')
+                                <a href="{{ route('admin.contracts.create-avenant', $contract) }}" class="btn btn-primary me-2">
+                                    <i class="bi bi-file-earmark-plus"></i> Créer un avenant
+                                </a>
+                            @endif
+                            
+                            @if($contract->status === 'submitted')
+                                <a href="{{ route('admin.contracts.edit', $contract) }}" class="btn btn-primary me-2">
+                                    <i class="bi bi-pencil"></i> Modifier
+                                </a>
+                                <a href="{{ route('admin.contracts.sign.form', $contract) }}" class="btn btn-success me-2">
+                                    <i class="bi bi-pen"></i> Signer
+                                </a>
+                                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                                    <i class="bi bi-x-circle"></i> Rejeter
+                                </button>
+                            @endif
+                            
+                            <a href="{{ route('admin.contracts.preview', $contract) }}" class="btn btn-secondary" target="_blank">
+                                <i class="bi bi-eye"></i> Prévisualiser
+                            </a>
+                        </div>
+                    </div>
+                    
+                    @if($contract->avenants && $contract->avenants->count() > 0)
+                    <div class="mt-5">
+                        <h6 class="border-bottom pb-2 mb-3">Avenants au contrat</h6>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>N° Avenant</th>
+                                        <th>Date de création</th>
+                                        <th>Statut</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($contract->avenants as $avenant)
+                                    <tr>
+                                        <td>{{ $avenant->avenant_number }}</td>
+                                        <td>{{ $avenant->created_at->format('d/m/Y') }}</td>
+                                        <td>
+                                            @if($avenant->status == 'draft')
+                                                <span class="badge bg-secondary">Brouillon</span>
+                                            @elseif($avenant->status == 'submitted')
+                                                <span class="badge bg-primary">Soumis</span>
+                                            @elseif($avenant->status == 'admin_signed')
+                                                <span class="badge bg-info">Signé admin</span>
+                                            @elseif($avenant->status == 'employee_signed')
+                                                <span class="badge bg-success">Signé employé</span>
+                                            @elseif($avenant->status == 'completed')
+                                                <span class="badge bg-success">Complété</span>
+                                            @elseif($avenant->status == 'rejected')
+                                                <span class="badge bg-danger">Rejeté</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <a href="{{ route('admin.contracts.show', $avenant) }}" class="btn btn-sm btn-primary">
+                                                <i class="bi bi-eye"></i> Voir
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>

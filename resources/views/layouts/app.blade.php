@@ -95,6 +95,11 @@
                                             <i class="bi bi-file-earmark-text"></i> Contrats
                                         </a>
                                     </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link {{ Request::is('admin/employees/finalized') ? 'active' : '' }}" href="{{ route('admin.employees.finalized') }}">
+                                            <i class="bi bi-table"></i> Tableau d'émargement
+                                        </a>
+                                    </li>
                                 @else
                                     <li class="nav-item">
                                         <a class="nav-link" href="{{ route('employee.contracts.index') }}">Mes contrats</a>

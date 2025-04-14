@@ -18,7 +18,10 @@ class Contract extends Model
         'user_id',
         'admin_id',
         'contract_template_id',
+        'parent_contract_id',
         'title',
+        'avenant_number',
+        'contract_type',
         'status',
         'admin_notes',
         'admin_signature',
@@ -65,5 +68,42 @@ class Contract extends Model
     public function data()
     {
         return $this->hasOne(ContractData::class);
+    }
+    
+    /**
+     * Get the parent contract of this avenant.
+     */
+    public function parentContract()
+    {
+        return $this->belongsTo(Contract::class, 'parent_contract_id');
+    }
+    
+    /**
+     * Get the avenants (child contracts) of this contract.
+     */
+    public function avenants()
+    {
+        return $this->hasMany(Contract::class, 'parent_contract_id')
+                   ->where('contract_type', 'avenant');
+    }
+    
+    /**
+     * Check if this contract is an avenant.
+     */
+    public function isAvenant()
+    {
+        return $this->contract_type === 'avenant';
+    }
+    
+    /**
+     * Get the latest avenant number for a given parent contract.
+     */
+    public static function getNextAvenantNumber($parentContractId)
+    {
+        $maxNumber = static::where('parent_contract_id', $parentContractId)
+                        ->where('contract_type', 'avenant')
+                        ->max('avenant_number');
+        
+        return $maxNumber ? (intval($maxNumber) + 1) : 1;
     }
 }
