@@ -11,9 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('contracts', function (Blueprint $table) {
-            //
-        });
+        // Cette migration n'a plus besoin d'exécuter quoi que ce soit
+        // Le champ user_id est déjà dans la table contracts
     }
 
     /**
@@ -21,8 +20,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('contracts', function (Blueprint $table) {
-            //
-        });
+        // Rien à faire
     }
 };

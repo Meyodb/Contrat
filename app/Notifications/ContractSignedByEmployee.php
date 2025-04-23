@@ -7,7 +7,6 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\HtmlString;
 
 class ContractSignedByEmployee extends Notification implements ShouldQueue
 {
@@ -38,25 +37,15 @@ class ContractSignedByEmployee extends Notification implements ShouldQueue
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $contractData = $this->contract->data;
-        $employeeName = $this->contract->user->name;
-        $employeeEmail = $contractData && $contractData->email ? $contractData->email : $this->contract->user->email;
+        $contractType = $this->contract->is_avenant ? 'avenant' : 'contrat';
         
         return (new MailMessage)
-            ->subject('✅ Contrat signé par ' . $employeeName)
-            ->greeting('Bonjour ' . $notifiable->name . ',')
-            ->line('Le contrat **"' . $this->contract->title . '"** a été signé par ' . $employeeName . '.')
-            ->line(new HtmlString('Voici les détails du contrat :<br>
-                <ul>
-                    <li><strong>Référence</strong>: ' . $this->contract->title . '</li>
-                    <li><strong>Employé</strong>: ' . $employeeName . '</li>
-                    <li><strong>Email</strong>: ' . $employeeEmail . '</li>
-                    <li><strong>Date de signature</strong>: ' . now()->format('d/m/Y à H:i') . '</li>
-                </ul>'))
-            ->line('Le contrat est maintenant prêt pour la génération du document final.')
-            ->action('Voir et finaliser le contrat', route('admin.contracts.show', $this->contract))
-            ->line('Veuillez vérifier les informations et générer le document final pour compléter le processus.')
-            ->salutation('Cordialement, le système de gestion des contrats');
+                    ->subject($this->contract->is_avenant ? 'Un avenant a été signé' : 'Un contrat a été signé')
+                    ->greeting('Bonjour ' . $notifiable->name . ',')
+                    ->line('L\'employé ' . $this->contract->user->name . ' a signé ' . $contractType . '.')
+                    ->line('Le ' . $contractType . ' est maintenant complet et les signatures sont validées.')
+                    ->action('Voir le ' . $contractType, route('admin.contracts.show', $this->contract))
+                    ->line('Merci d\'utiliser notre application de gestion des contrats !');
     }
 
     /**
@@ -69,11 +58,8 @@ class ContractSignedByEmployee extends Notification implements ShouldQueue
         return [
             'contract_id' => $this->contract->id,
             'title' => $this->contract->title,
-            'employee_name' => $this->contract->user->name,
-            'employee_email' => $this->contract->data && $this->contract->data->email ? $this->contract->data->email : $this->contract->user->email,
-            'message' => 'Contrat signé par l\'employé',
+            'message' => 'Le contrat a été signé par ' . $this->contract->user->name,
             'signed_at' => now()->format('d/m/Y H:i'),
-            'status' => 'employee_signed'
         ];
     }
 } 

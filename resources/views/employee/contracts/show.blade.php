@@ -147,6 +147,42 @@
                                 </div>
                             </div>
                             
+                            @if(Auth::user()->profile_photo_path)
+                            <div class="mb-3">
+                                <h6 class="border-bottom pb-2 mb-3">Photo de profil</h6>
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="text-center">
+                                            @php
+                                                $photoPath = Auth::user()->profile_photo_path;
+                                                // Vérifier si le chemin commence par 'photos/'
+                                                if (strpos($photoPath, 'photos/') === 0) {
+                                                    $photoUrl = asset($photoPath);
+                                                } else {
+                                                    $photoUrl = Storage::url($photoPath);
+                                                }
+                                            @endphp
+                                            <img src="{{ $photoUrl }}" alt="Photo de profil" class="img-thumbnail rounded-circle" style="width: 180px; height: 180px; object-fit: cover;"
+                                                onerror="this.onerror=null; this.src='{{ asset('img/default-profile.png') }}'; console.error('Image non trouvée: {{ $photoUrl }}');">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            @else
+                            <div class="mb-3">
+                                <h6 class="border-bottom pb-2 mb-3">Photo de profil</h6>
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="text-center">
+                                            <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 180px; height: 180px; font-size: 4rem; margin: 0 auto;">
+                                                {{ strtoupper(substr(Auth::user()->name, 0, 1)) }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+                            
                             @if($contract->status === 'rejected')
                                 <div class="alert alert-danger position-relative">
                                     <button type="button" class="btn-close position-absolute" style="top: 10px; right: 10px; font-size: 0.8rem;" data-bs-dismiss="alert" aria-label="Fermer"></button>
@@ -176,18 +212,6 @@
                                         <p><strong>Coordonnées bancaires:</strong> {{ $contract->data ? $contract->data->bank_details : 'Non renseignées' }}</p>
                                     </div>
                                 </div>
-                                
-                                @if($contract->data && $contract->data->photo_path)
-                                <div class="mb-3">
-                                    <label class="form-label fw-bold">Photo d'identité</label>
-                                    <div>
-                                        @php
-                                            $photoFilename = basename($contract->data->photo_path);
-                                        @endphp
-                                        <img src="{{ route('employee.photo', ['filename' => $photoFilename]) }}" alt="Photo d'identité" class="img-thumbnail" style="max-height: 200px;">
-                                    </div>
-                                </div>
-                                @endif
                             </div>
                         </div>
                         
@@ -285,12 +309,12 @@
                                                                     'exists' => \Storage::exists('public/' . $adminSignaturePath)
                                                                 ]);
                                                             @endphp
-                                                            <img src="{{ route('signature', ['filename' => 'admin_signature.png']) }}" 
+                                                            <img src="{{ route('signature.admin', ['filename' => 'admin_signature.png']) }}" 
                                                                  alt="Signature de l'employeur" 
                                                                  class="img-fluid" 
                                                                  style="max-height: 150px;">
-                                                    @else
-                                                        <p class="text-muted">Non signé</p>
+                                                        @else
+                                                            <p class="text-muted">Non signé</p>
                                                             @if(!$contract->admin_signed_at)
                                                                 <small class="text-danger">L'administrateur n'a pas encore signé</small>
                                                             @endif
@@ -312,17 +336,17 @@
                                                         </p>
                                                     </div>
                                                     <div class="signature-container text-center" style="height: 150px; width: 100%; display: flex; align-items: center; justify-content: center;">
-                                                @if($contract->employee_signature)
-                                                    @php
-                                                        $employeeSignatureFilename = basename($contract->employee_signature);
-                                                    @endphp
+                                                        @if($contract->employee_signature)
+                                                            @php
+                                                                $employeeSignatureFilename = basename($contract->employee_signature);
+                                                            @endphp
                                                             <img src="{{ route('signature', ['filename' => $employeeSignatureFilename]) }}" 
                                                                  alt="Signature de l'employé" 
                                                                  class="img-fluid" 
                                                                  style="max-height: 150px;">
-                                                @else
-                                                    <p class="text-muted">Non signé</p>
-                                                @endif
+                                                        @else
+                                                            <p class="text-muted">Non signé</p>
+                                                        @endif
                                                     </div>
                                                     @if($contract->employee_signed_at)
                                                         <p class="small text-muted mt-2 text-center">Signé le {{ $contract->employee_signed_at ? $contract->employee_signed_at->format('d/m/Y') : 'Date inconnue' }}</p>
@@ -335,7 +359,7 @@
                                 </div>
                                 
                                 <div class="mt-3">
-                                    <a href="{{ route('employee.contracts.preview', $contract) }}" class="btn btn-outline-primary" target="_blank">
+                                    <a href="{{ route('employee.contracts.preview', $contract) }}" class="btn btn-outline-primary" onclick="window.open(this.href, '_blank'); return false;">
                                         <i class="bi bi-eye"></i> Prévisualiser en PDF
                                     </a>
                                 </div>
@@ -517,13 +541,13 @@
                     <p class="mb-3">Veuillez dessiner votre signature dans le cadre ci-dessous :</p>
                     
                     <div class="signature-pad-container">
-                        <canvas id="signature-pad" class="signature-pad" width="600" height="200" style="touch-action: none;"></canvas>
+                        <canvas id="signature-pad" class="signature-pad" width="600" height="200" style="touch-action: none; border: 1px solid #ddd; background-color: white;"></canvas>
                         <div class="signature-pad-actions">
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-button">Effacer</button>
                         </div>
                     </div>
                     
-                    <input type="hidden" name="employee_signature" id="signature-data">
+                    <input type="hidden" name="signature" id="signature-data">
                     
                     <div class="form-check mt-3">
                         <input class="form-check-input" type="checkbox" id="signature-confirm" required>
@@ -557,12 +581,14 @@
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Créer une nouvelle instance de SignaturePad
+            // Créer une nouvelle instance de SignaturePad avec des paramètres améliorés
             signaturePad = new SignaturePad(canvas, {
-                backgroundColor: 'rgba(255, 255, 255, 0)',
-                penColor: 'black',
-                minWidth: 1,
-                maxWidth: 2.5
+                backgroundColor: 'rgb(255, 255, 255)',
+                penColor: 'rgb(0, 0, 0)',
+                minWidth: 1.5,
+                maxWidth: 3.5,
+                throttle: 16, // Plus fluide
+                velocityFilterWeight: 0.5 // Pour des lignes plus naturelles
             });
             
             // Redimensionner le canvas pour qu'il corresponde à la taille du conteneur
@@ -570,6 +596,11 @@
                 const ratio = Math.max(window.devicePixelRatio || 1, 1);
                 const width = canvas.offsetWidth;
                 const height = canvas.offsetHeight;
+                
+                // Si le canvas est déjà à la bonne taille, ne rien faire
+                if (canvas.width === width * ratio && canvas.height === height * ratio) {
+                    return;
+                }
                 
                 canvas.width = width * ratio;
                 canvas.height = height * ratio;
@@ -595,10 +626,11 @@
             });
         });
         
-            // Formulaire de soumission principal
+        // Formulaire de soumission principal
         document.getElementById('signatureForm').addEventListener('submit', function(e) {
+            e.preventDefault(); // Empêcher la soumission par défaut
+            
             if (!signaturePad || signaturePad.isEmpty()) {
-                e.preventDefault();
                 alert('Veuillez dessiner votre signature avant de soumettre.');
                 return false;
             }
@@ -606,22 +638,52 @@
             // Vérifier que la case de confirmation est cochée
             const confirmCheckbox = document.getElementById('signature-confirm');
             if (!confirmCheckbox.checked) {
-                e.preventDefault();
                 alert('Veuillez confirmer que vous avez lu et accepté les conditions du contrat.');
                 return false;
             }
             
-            // Convertir la signature en PNG
             try {
-                const signatureData = signaturePad.toDataURL('image/png');
-                document.getElementById('signature-data').value = signatureData;
-                console.log('Signature capturée avec succès');
-                return true;
+                // Ajouter un indicateur de chargement
+                const submitBtn = document.getElementById('submit-signature');
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Enregistrement...';
+                submitBtn.disabled = true;
+                
+                // Ajouter une confirmation avant l'envoi
+                if (confirm('Êtes-vous sûr de vouloir signer ce contrat ? Cette action est définitive.')) {
+                    // Capturer l'image de la signature avec la meilleure qualité possible
+                    const signatureData = signaturePad.toDataURL('image/png', 1.0);
+                    
+                    // Vérifier que la signature n'est pas trop petite
+                    if (signatureData.length < 1000) {
+                        alert('La signature semble trop petite ou vide. Veuillez signer à nouveau.');
+                        submitBtn.innerHTML = 'Signer';
+                        submitBtn.disabled = false;
+                        return false;
+                    }
+                    
+                    console.log('Signature capturée avec succès, longueur des données:', signatureData.length);
+                    
+                    // Définir la valeur du champ caché
+                    document.getElementById('signature-data').value = signatureData;
+                    
+                    // Débug visuel - afficher la signature dans la console (optionnel)
+                    const img = new Image();
+                    img.src = signatureData;
+                    console.log('Aperçu de la signature:', img);
+                    
+                    // Soumettre le formulaire
+                    this.submit();
+                } else {
+                    // L'utilisateur a annulé
+                    submitBtn.innerHTML = 'Signer';
+                    submitBtn.disabled = false;
+                }
             } catch (error) {
                 console.error('Erreur lors de la capture de la signature:', error);
                 alert('Une erreur est survenue lors de la capture de votre signature. Veuillez réessayer.');
-                e.preventDefault();
-                return false;
+                const submitBtn = document.getElementById('submit-signature');
+                submitBtn.innerHTML = 'Signer';
+                submitBtn.disabled = false;
             }
         });
         }

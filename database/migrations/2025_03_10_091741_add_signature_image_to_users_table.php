@@ -11,9 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->string('signature_image')->nullable()->after('is_admin');
-        });
+        // Cette migration n'a plus besoin d'exécuter quoi que ce soit
+        // Le champ signature_image est déjà dans la table users
     }
 
     /**
@@ -21,8 +20,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('signature_image');
-        });
+        // Rien à faire
     }
 };

@@ -46,10 +46,9 @@
                                             <td class="align-middle text-center">
                                                 @if($user->contracts->first()->employee_signature)
                                                     @php
-                                                        $contractId = $user->contracts->first()->id;
-                                                        $employeeSignatureFilename = $contractId . '_employee.png';
+                                                        $signaturePath = $user->contracts->first()->employee_signature;
                                                     @endphp
-                                                    <img src="{{ asset('storage/signatures/' . $employeeSignatureFilename) }}" alt="Signature employé" style="max-height: 60px;">
+                                                    <img src="{{ route('signature', ['filename' => basename($signaturePath)]) }}" alt="Signature employé" style="max-height: 60px;">
                                                 @endif
                                             </td>
                                         </tr>

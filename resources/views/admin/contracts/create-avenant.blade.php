@@ -25,7 +25,7 @@
                     @endif
                     
                     <div class="alert alert-info">
-                        <p>Vous êtes en train de créer un avenant au contrat de <strong>{{ $contract->user->name }}</strong>.</p>
+                        <p>Vous êtes en train de créer un avenant au contrat de <strong>{{ $contract->user ? $contract->user->name : 'Utilisateur supprimé' }}</strong>.</p>
                         <p>Le contrat original a été signé le {{ $contract->completed_at ? $contract->completed_at->format('d/m/Y') : $contract->employee_signed_at->format('d/m/Y') }}.</p>
                     </div>
                     
@@ -118,6 +118,18 @@
                             </div>
                         </div>
                         
+                        <div class="mb-4">
+                            <h6 class="border-bottom pb-2 mb-3">Motif de l'avenant</h6>
+                            <div class="mb-3">
+                                <label for="motif" class="form-label">Motif de la modification</label>
+                                <textarea class="form-control @error('motif') is-invalid @enderror" id="motif" name="motif" rows="3">{{ old('motif', 'Modification des conditions de travail') }}</textarea>
+                                @error('motif')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                                <div class="form-text">Précisez le motif justifiant cet avenant.</div>
+                            </div>
+                        </div>
+                        
                         <div class="d-flex justify-content-between">
                             <a href="{{ route('admin.contracts.show', $contract) }}" class="btn btn-outline-secondary">
                                 <i class="bi bi-arrow-left"></i> Retour au contrat
@@ -136,12 +148,14 @@
                     <!-- Formulaire caché pour la prévisualisation -->
                     <form id="preview-form" action="{{ route('admin.contracts.avenant.preview', $contract) }}" method="POST" target="_blank" style="display: none;">
                         @csrf
+                        <input type="hidden" name="parent_contract_id" value="{{ $contract->id }}">
                         <input type="hidden" name="avenant_number" id="preview_avenant_number">
                         <input type="hidden" name="effective_date" id="preview_effective_date">
                         <input type="hidden" name="signing_date" id="preview_signing_date">
                         <input type="hidden" name="new_hours" id="preview_new_hours">
                         <input type="hidden" name="new_salary" id="preview_new_salary">
                         <input type="hidden" name="new_hourly_rate" id="preview_new_hourly_rate">
+                        <input type="hidden" name="motif" id="preview_motif">
                     </form>
                 </div>
             </div>
@@ -163,13 +177,33 @@
         const previewForm = document.getElementById('preview-form');
         
         previewButton.addEventListener('click', function() {
+            // Vérifier si les champs obligatoires sont remplis
+            const newHours = document.getElementById('new_hours').value;
+            const newHourlyRate = document.getElementById('new_hourly_rate').value;
+            
+            if (!newHours || newHours.trim() === '') {
+                alert('Veuillez saisir un nombre d\'heures hebdomadaires');
+                document.getElementById('new_hours').focus();
+                return;
+            }
+            
+            if (!newHourlyRate || newHourlyRate.trim() === '') {
+                alert('Veuillez saisir un taux horaire');
+                document.getElementById('new_hourly_rate').focus();
+                return;
+            }
+            
+            // Recalculer le salaire si nécessaire
+            if (calculateAutomatically.checked) {
+                calculateValues();
+            }
+            
             // Récupérer toutes les valeurs du formulaire principal
             const avenantNumber = document.getElementById('avenant_number').value;
             const effectiveDate = document.getElementById('effective_date').value;
             const signingDate = document.getElementById('signing_date').value;
-            const newHours = document.getElementById('new_hours').value;
             const newSalary = document.getElementById('new_salary').value;
-            const newHourlyRate = document.getElementById('new_hourly_rate').value;
+            const motif = document.getElementById('motif').value;
             
             // Mettre à jour les champs cachés du formulaire de prévisualisation
             document.getElementById('preview_avenant_number').value = avenantNumber;
@@ -178,6 +212,17 @@
             document.getElementById('preview_new_hours').value = newHours;
             document.getElementById('preview_new_salary').value = newSalary;
             document.getElementById('preview_new_hourly_rate').value = newHourlyRate;
+            document.getElementById('preview_motif').value = motif;
+            
+            console.log('Valeurs de prévisualisation:', {
+                avenant_number: avenantNumber,
+                effective_date: effectiveDate,
+                signing_date: signingDate,
+                new_hours: newHours,
+                new_salary: newSalary,
+                new_hourly_rate: newHourlyRate,
+                motif: motif
+            });
             
             // Soumettre le formulaire de prévisualisation
             previewForm.submit();
@@ -194,8 +239,8 @@
             const newHours = parseFloat(newHoursInput.value) || 0;
             const hourlyRate = parseFloat(newHourlyRateInput.value) || 0;
             
-            // Calculer heures mensuelles (hebdomadaire * 4.33)
-            const monthlyHours = newHours * 4.33;
+            // Calculer heures mensuelles (hebdomadaire / 5 * 21.6)
+            const monthlyHours = newHours / 5 * 21.6;
             
             // Calculer salaire mensuel brut
             const monthlySalary = monthlyHours * hourlyRate;

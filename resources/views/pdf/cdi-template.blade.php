@@ -7,34 +7,36 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            font-size: 11pt;
-            line-height: 1.6;
+            font-size: 9pt;
+            line-height: 1.4;
             color: #000;
             margin: 0;
-            padding: 25px;
+            padding: 20px;
         }
         h1 {
-            font-size: 14pt;
+            font-size: 12pt;
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             text-transform: uppercase;
             font-weight: bold;
         }
         p {
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             text-align: justify;
+            font-size: 9pt;
         }
         .header {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
         }
         .article {
-            margin-top: 20px;
-            margin-bottom: 20px;
+            margin-top: 15px;
+            margin-bottom: 15px;
         }
         .article-title {
             font-weight: bold;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
+            font-size: 9pt;
         }
         .signature-block {
             margin-top: 50px;
@@ -61,7 +63,7 @@
             bottom: 5px;
         }
         .footer {
-            margin-top: 50px;
+            margin-top: 15px;
             text-align: center;
         }
         .addendum {
@@ -71,7 +73,54 @@
             text-align: left;
         }
         @page {
-            margin: 2.5cm 2cm;
+            margin: 2cm 1.5cm;
+        }
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+            border: 1px solid #000;
+            padding: 2px;
+            text-align: center;
+            font-size: 7pt;
+            height: 16px;
+        }
+            background-color: #f3f3f3;
+            font-weight: bold;
+            height: 18px;
+            font-size: 7pt;
+        }
+        .signature-small {
+            max-height: 60px;
+            max-width: 140px;
+        }
+        /* Empêcher le saut de page entre les articles et les signatures */
+        .contract-end {
+            page-break-inside: avoid;
+        }
+        @media print {
+            body {
+                font-size: 10pt;
+                line-height: 1.3;
+                padding: 0;
+                margin: 0;
+            }
+                page-break-inside: avoid;
+            }
+                border: 1px solid #000 !important;
+                padding: 2px;
+            }
+            .footer {
+                page-break-before: avoid;
+            }
+            .signature-small {
+                max-height: 50px;
+                max-width: 120px;
+            }
+            img {
+                max-width: 100% !important;
+            }
         }
     </style>
 </head>
@@ -164,254 +213,188 @@
         <p>Des défauts de qualité graves ou répétés pourront entraîner des sanctions disciplinaires.</p>
     </div>
 
-    <div class="article">
-        <div class="article-title">ARTICLE 9 - CONDITIONS D'EXÉCUTION DU CONTRAT</div>
-        <p>{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} s'engage à se conformer aux instructions de la Direction.</p>
-        
-        <p>Compte tenu de la nature de son emploi comportant un contact permanent avec la clientèle et de la nécessité pour la société de conserver sa bonne image de marque, {{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} s'engage à porter en toutes circonstances une tenue correcte et de bon aloi.</p>
-        
-        <p>Le refus de se conformer à ces prescriptions sera constitutif d'une faute susceptible d'être sanctionnée.</p>
-        
-        <p>{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} devra faire connaître à l'entreprise sans délai toute modification postérieure à son engagement qui pourrait intervenir dans son état civil, sa situation de famille, son adresse.</p>
-    </div>
+    <div style="page-break-inside: avoid;">
+        <div class="article">
+            <div class="article-title">ARTICLE 9 - CONDITIONS D'EXÉCUTION DU CONTRAT</div>
+            <p style="font-size: 9pt;">{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} s'engage à se conformer aux instructions de la Direction.</p>
+            
+            <p style="font-size: 9pt;">Compte tenu de la nature de son emploi comportant un contact permanent avec la clientèle et de la nécessité pour la société de conserver sa bonne image de marque, {{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} s'engage à porter en toutes circonstances une tenue correcte et de bon aloi.</p>
+            
+            <p style="font-size: 9pt;">Le refus de se conformer à ces prescriptions sera constitutif d'une faute susceptible d'être sanctionnée.</p>
+            
+            <p style="font-size: 9pt;">{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} devra faire connaître à l'entreprise sans délai toute modification postérieure à son engagement qui pourrait intervenir dans son état civil, sa situation de famille, son adresse.</p>
+        </div>
 
-    <div class="article">
-        <div class="article-title">ARTICLE 10 - CONGÉS PAYÉS</div>
-        <p>{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} bénéficiera des congés payés légaux, soit trente jours ouvrables par période du 1er juin au 31 mai suivant.</p>
-        
-        <p>La période de congés payés sera fixée chaque année en tenant compte des nécessités du service.</p>
+        <div class="article" style="margin-top: 0; page-break-after: avoid;">
+            <div class="article-title">ARTICLE 10 - CONGÉS PAYÉS</div>
+            <p style="font-size: 9pt;">{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} bénéficiera des congés payés légaux, soit trente jours ouvrables par période du 1er juin au 31 mai suivant.</p>
+            
+            <p style="font-size: 9pt;">La période de congés payés sera fixée chaque année en tenant compte des nécessités du service.</p>
+        </div>
     </div>
 
     <div class="article">
         <div class="article-title">ARTICLE 11 - STATUT</div>
-        <p>{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} bénéficiera des lois sociales instituées en faveur des salariés, notamment en matière de Sécurité Sociale et en ce qui concerne le régime de retraite complémentaire pour lequel elle est affiliée.</p>
+        <p style="font-size: 9pt; margin-bottom: 5px;">{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} bénéficiera des lois sociales instituées en faveur des salariés, notamment en matière de Sécurité Sociale et en ce qui concerne le régime de retraite complémentaire pour lequel elle est affiliée.</p>
         
-        <p>{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} relève de la catégorie "employé" et sera affiliée dès son entrée au sein de la société au contrat retraite complémentaire Humanis.</p>
+        <p style="font-size: 9pt; margin-bottom: 5px;">{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} relève de la catégorie "employé" et sera affiliée dès son entrée au sein de la société au contrat retraite complémentaire Humanis.</p>
         
-        <p>{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} relève de la catégorie "employé" et sera affiliée dès son entrée au sein de la société au contrat Prévoyance AG2R.</p>
+        <p style="font-size: 9pt; margin-bottom: 5px;">{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} relève de la catégorie "employé" et sera affiliée dès son entrée au sein de la société au contrat Prévoyance AG2R.</p>
         
-        <p>{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} relève de la catégorie "employé" et sera affiliée dès son entrée au sein de la société à la Mutuelle APRIL ENTREPRISE.</p>
+        <p style="font-size: 9pt; margin-bottom: 5px;">{{ ($data->gender ?? '') == 'M' ? 'Monsieur' : 'Madame' }} {{ $data->last_name ?? '___________' }} {{ $data->first_name ?? '___________' }} relève de la catégorie "employé" et sera affiliée dès son entrée au sein de la société à la Mutuelle APRIL ENTREPRISE.</p>
         
-        <p>Pour toutes les dispositions non prévues par les présentes, les parties déclarent se référer à la convention collective de la restauration rapide, au code du travail ainsi qu'aux lois et règlements applicables dans la société.</p>
+        <p style="font-size: 9pt; margin-bottom: 5px;">Pour toutes les dispositions non prévues par les présentes, les parties déclarent se référer à la convention collective de la restauration rapide, au code du travail ainsi qu'aux lois et règlements applicables dans la société.</p>
     </div>
 
-    <div class="footer">
-        <p>Fait en double exemplaire originaux dont un pour chacune des parties.</p>
+    <div class="footer" style="page-break-inside: avoid; margin-top: 5px;">
+        <p style="font-size: 9pt;">Fait en double exemplaire originaux dont un pour chacune des parties.</p>
         
-        <p>A Paris, le {{ (is_object($data) && isset($data->contract_start_date)) ? date('d/m/Y', strtotime($data->contract_start_date)) : '___________' }}</p>
+        <p style="font-size: 9pt;">A Paris, le {{ (is_object($data) && isset($data->contract_start_date)) ? date('d/m/Y', strtotime($data->contract_start_date)) : '___________' }}</p>
         
         <!-- Signatures -->
-        <div style="margin-top: 80px; margin-bottom: 20px;">
+        <div style="margin-top: 3px; margin-bottom: 5px;">
             <table width="100%" style="border-spacing: 0;">
                 <tr>
-                    <td width="45%" style="text-align: center; vertical-align: top; padding-top: 10px;">
-                        <p style="margin-bottom: 10px; text-align: center;"><strong>L'employeur</strong></p>
-                        <p style="text-align: center;">M BRIAND Grégory</p>
-                        <p style="text-align: center;">Pour la société</p>
-                        <p style="text-align: center;">{{ $admin->name ?? 'L\'administrateur' }}</p>
-                        <p>&nbsp;</p>
+                    <td width="45%" style="text-align: center; vertical-align: top; padding-top: 2px;">
+                        <p style="margin-bottom: 2px; text-align: center; font-size: 9pt;"><strong>L'employeur</strong></p>
+                        <p style="text-align: center; font-size: 9pt; margin-bottom: 1px;">M BRIAND Grégory</p>
+                        <p style="text-align: center; font-size: 9pt; margin-bottom: 1px;">Pour la société</p>
                         <div style="text-align: center;">
                         @php
-                            $adminSignaturePath = storage_path('app/public/signatures/admin_signature.png');
-                            $adminSignatureBase64 = '';
+                            // Vérifier si la signature admin doit être affichée
+                            $showAdminSignature = false;
                             
-                            \Log::info('PDF: Tentative de lecture de la signature admin', [
-                                'chemin' => $adminSignaturePath,
-                                'existe' => file_exists($adminSignaturePath),
-                                'taille' => file_exists($adminSignaturePath) ? filesize($adminSignaturePath) : 0
-                            ]);
-                            
-                            if (file_exists($adminSignaturePath)) {
-                                try {
-                                    $adminSignatureContent = file_get_contents($adminSignaturePath);
-                                    if ($adminSignatureContent !== false) {
-                                        $adminSignatureBase64 = base64_encode($adminSignatureContent);
-                                        \Log::info('PDF: Signature admin lue avec succès', [
-                                            'taille_base64' => strlen($adminSignatureBase64)
-                                        ]);
-                                    } else {
-                                        \Log::error('PDF: Impossible de lire le contenu de la signature admin');
-                                    }
-                                } catch (\Exception $e) {
-                                    \Log::error('PDF: Exception lors de la lecture de la signature admin: ' . $e->getMessage());
-                                }
+                            // Toujours afficher la signature admin en prévisualisation
+                            if (isset($isPreview) && $isPreview === true) {
+                                $showAdminSignature = true;
+                                \Log::info('Signature admin forcée en prévisualisation pour tous les cas');
+                            }
+                            // Utiliser la variable explicite show_admin_signature 
+                            elseif (isset($show_admin_signature) && $show_admin_signature === true) {
+                                $showAdminSignature = true;
+                                \Log::info('Signature admin affichée via variable explicite', ['show_admin_signature' => $show_admin_signature]);
+                            } 
+                            // Sinon, vérifier le statut du contrat - CETTE PARTIE EST CRITIQUE
+                            elseif (isset($contract) && isset($contract->status) && 
+                                ($contract->status === 'admin_signed' || 
+                                 $contract->status === 'employee_signed' || 
+                                 $contract->status === 'completed')) {
+                                $showAdminSignature = true;
+                                \Log::info('Signature admin affichée via statut du contrat', ['status' => $contract->status ?? 'N/A']);
                             }
                             
-                            // Si la signature n'est pas trouvée, essayer avec Storage
-                            if (empty($adminSignatureBase64) && \Storage::exists('public/signatures/admin_signature.png')) {
-                                try {
-                                    $adminSignatureContent = \Storage::get('public/signatures/admin_signature.png');
-                                    if ($adminSignatureContent !== false) {
-                                        $adminSignatureBase64 = base64_encode($adminSignatureContent);
-                                        \Log::info('PDF: Signature admin récupérée via Storage', [
-                                            'taille_base64' => strlen($adminSignatureBase64)
-                                        ]);
-                                    }
-                                } catch (\Exception $e) {
-                                    \Log::error('PDF: Exception avec Storage: ' . $e->getMessage());
-                                }
+                            // Forcer à partir de la propriété ajoutée au contrat
+                            if (isset($contract) && isset($contract->show_admin_signature) && $contract->show_admin_signature) {
+                                $showAdminSignature = true;
+                                \Log::info('Signature admin forcée par la propriété show_admin_signature');
                             }
                             
-                            // En dernier recours, créer la signature
-                            if (empty($adminSignatureBase64)) {
-                                $controller = new \App\Http\Controllers\SignatureController();
-                                $methodName = 'createAdminSignature';
-                                
-                                if (method_exists($controller, $methodName)) {
-                                    $reflection = new \ReflectionMethod($controller, $methodName);
-                                    $reflection->setAccessible(true);
-                                    $result = $reflection->invoke($controller);
-                                    
-                                    \Log::info('PDF: Tentative de création de signature', [
-                                        'résultat' => $result ? 'Succès' : 'Échec'
-                                    ]);
-                                    
-                                    // Essayer à nouveau de lire le fichier
-                                    if (file_exists($adminSignaturePath)) {
-                                        $adminSignatureContent = file_get_contents($adminSignaturePath);
-                                        if ($adminSignatureContent !== false) {
-                                            $adminSignatureBase64 = base64_encode($adminSignatureContent);
-                                        }
-                                    }
-                                }
+                            // Forcer encore l'affichage pour la prévisualisation
+                            if (isset($contract) && isset($contract->admin_signed_at) && $contract->admin_signed_at) {
+                                $showAdminSignature = true;
+                                \Log::info('Signature admin forcée car admin_signed_at est défini', ['admin_signed_at' => $contract->admin_signed_at]);
+                            }
+                            
+                            // En prévisualisation, forcer l'affichage de la signature admin
+                            if (isset($isPreview) && $isPreview === true) {
+                                $showAdminSignature = true;
+                                \Log::info('Signature admin forcée en mode prévisualisation');
+                            }
+                            
+                            // Si disponible, utiliser la signature en base64 passée par le contrôleur
+                            $adminSignatureBase64 = $adminSignatureBase64 ?? null;
+                            
+                            // Si l'attribut adminSignatureBase64 est défini sur le contrat, l'utiliser
+                            if (!$adminSignatureBase64 && isset($contract) && isset($contract->adminSignatureBase64)) {
+                                $adminSignatureBase64 = $contract->adminSignatureBase64;
+                                \Log::info('Utilisation de adminSignatureBase64 depuis le contrat');
+                            }
+                            
+                            // Si pas de base64, essayer de charger l'image directement depuis le helper
+                            if (!$adminSignatureBase64 && $showAdminSignature) {
+                                $signatureHelper = new \App\Temp_Fixes\SignatureHelper();
+                                $adminId = isset($contract) && isset($contract->admin_id) ? $contract->admin_id : (Auth::id() ?? null);
+                                $adminSignatureBase64 = $signatureHelper->prepareSignatureForPdf('admin', $adminId);
+                                \Log::info('Chargement signature admin via helper', ['admin_id' => $adminId]);
                             }
                         @endphp
                         
-                        @if(!empty($adminSignatureBase64))
-                            <img src="data:image/png;base64,{{ $adminSignatureBase64 }}" alt="Signature de l'employeur" style="max-height: 100px; margin: 0 auto;">
+                        @if($showAdminSignature)
+                            @if($adminSignatureBase64)
+                                <img src="{{ $adminSignatureBase64 }}" alt="Signature de l'employeur" style="max-height: 70px; margin: 0 auto;">
+                                @php \Log::info('Affichage signature admin en base64', ['length' => strlen($adminSignatureBase64)]); @endphp
+                            @elseif(isset($isPreview) && $isPreview)
+                                <img src="{{ $adminSignatureAbsUrl }}" alt="Signature de l'employeur (URL absolue)" style="max-height: 70px; margin: 0 auto;">
+                                @php \Log::info('Affichage signature admin URL absolue', ['url' => $adminSignatureAbsUrl]); @endphp
+                            @elseif(isset($contract) && isset($contract->admin_signature) && !empty($contract->admin_signature))
+                                @php 
+                                    $adminSignatureUrl = Storage::url($contract->admin_signature);
+                                    \Log::info('Utilisation signature admin depuis contrat', ['url' => $adminSignatureUrl]);
+                                @endphp
+                                <img src="{{ $adminSignatureUrl }}" alt="Signature de l'employeur" style="max-height: 70px; margin: 0 auto;">
+                            @else
+                                <img src="{{ $adminSignatureUrl }}" alt="Signature de l'employeur" style="max-height: 70px; margin: 0 auto;">
+                                @php \Log::info('Affichage signature admin URL relative', ['url' => $adminSignatureUrl]); @endphp
+                            @endif
                         @else
-                            <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block; text-align:center; margin: 0 auto;">
-                                Signature de l'employeur
+                            <div style="width:150px; height:70px; border-bottom: 1px solid #000; display:inline-block; text-align:center; margin: 0 auto;">
+                                <span style="font-size: 8pt; color: #666;">(signature)</span>
                             </div>
+                            @php \Log::warning('Signature admin non affichée', ['showAdminSignature' => $showAdminSignature]); @endphp
                         @endif
                         </div>
                     </td>
                     <td width="10%">&nbsp;</td>
-                    <td width="45%" style="text-align: center; vertical-align: top; padding-top: 10px;">
-                        <p style="margin-bottom: 10px; text-align: center;"><strong>L'employé(e)</strong></p>
-                        <p style="text-align: center;">{{ $data->first_name ?? '' }} {{ $data->last_name ?? '' }}</p>
-                        <p>&nbsp;</p>
+                    <td width="45%" style="text-align: center; vertical-align: top; padding-top: 2px;">
+                        <p style="margin-bottom: 2px; text-align: center; font-size: 9pt;"><strong>L'employé(e)</strong></p>
+                        <p style="text-align: center; font-size: 9pt; margin-bottom: 2px;">{{ $data->first_name ?? '' }} {{ $data->last_name ?? '' }}</p>
                         <div style="text-align: center;">
                         @php
-                            $employeeSignaturePath = '';
-                            if (isset($employee_signature)) {
-                                $employeeSignaturePath = storage_path('app/public/signatures/' . basename($employee_signature));
-                                \Log::info('PDF: Signature employé demandée', [
-                                    'param_employee_signature' => $employee_signature,
-                                    'chemin_calculé' => $employeeSignaturePath
-                                ]);
-                            } else {
-                                \Log::warning('PDF: Variable employee_signature non définie');
+                            // Vérifier si la signature employé doit être affichée
+                            $showEmployeeSignature = false;
+                            
+                            // Utiliser la variable explicite show_employee_signature
+                            if (isset($show_employee_signature) && $show_employee_signature === true) {
+                                $showEmployeeSignature = true;
+                            }
+                            // Sinon, vérifier le statut du contrat
+                            elseif (isset($contract) && isset($contract->status) && 
+                                   ($contract->status === 'employee_signed' || 
+                                    $contract->status === 'completed')) {
+                                $showEmployeeSignature = true;
                             }
                             
-                            // Essayer de déterminer le fichier basé sur l'utilisateur du contrat
-                            if (empty($employeeSignaturePath) && isset($contract) && isset($contract->user_id)) {
-                                $userId = $contract->user_id;
-                                $employeeSignatureFilename = $userId . '_employee.png';
-                                $employeeSignaturePath = storage_path('app/public/signatures/' . $employeeSignatureFilename);
-                                \Log::info('PDF: Tentative alternative avec user_id', [
-                                    'user_id' => $userId,
-                                    'filename' => $employeeSignatureFilename,
-                                    'chemin' => $employeeSignaturePath
-                                ]);
-                            }
+                            // Utiliser la signature en base64 si disponible
+                            $employeeSignatureBase64Data = $employeeSignatureBase64 ?? null;
                             
-                            \Log::info('PDF: Tentative de lecture de la signature employé', [
-                                'chemin' => $employeeSignaturePath,
-                                'existe' => !empty($employeeSignaturePath) && file_exists($employeeSignaturePath),
-                                'taille' => (!empty($employeeSignaturePath) && file_exists($employeeSignaturePath)) ? filesize($employeeSignaturePath) : 0
-                            ]);
-                            
-                            $employeeSignatureBase64 = '';
-                            
-                            // Méthode 1: Lecture directe du fichier
-                            if (!empty($employeeSignaturePath) && file_exists($employeeSignaturePath)) {
-                                try {
-                                    $employeeSignatureContent = file_get_contents($employeeSignaturePath);
-                                    if ($employeeSignatureContent !== false) {
-                                        $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                                        \Log::info('PDF: Signature employé lue avec succès (méthode directe)', [
-                                            'taille_base64' => strlen($employeeSignatureBase64)
-                                        ]);
-                                    } else {
-                                        \Log::error('PDF: Impossible de lire le contenu de la signature employé');
-                                    }
-                                } catch (\Exception $e) {
-                                    \Log::error('PDF: Exception lors de la lecture de la signature employé: ' . $e->getMessage());
-                                }
-                            }
-                            
-                            // Méthode 2: Utilisation de Storage si la méthode 1 a échoué
-                            if (empty($employeeSignatureBase64) && isset($employee_signature)) {
-                                $storagePath = 'public/signatures/' . basename($employee_signature);
-                                if (\Storage::exists($storagePath)) {
-                                    try {
-                                        $employeeSignatureContent = \Storage::get($storagePath);
-                                        if ($employeeSignatureContent !== false) {
-                                            $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                                            \Log::info('PDF: Signature employé récupérée via Storage', [
-                                                'path' => $storagePath,
-                                                'taille_base64' => strlen($employeeSignatureBase64)
-                                            ]);
-                                        }
-                                    } catch (\Exception $e) {
-                                        \Log::error('PDF: Exception avec Storage pour employé: ' . $e->getMessage());
-                                    }
-                                }
-                            }
-                            
-                            // Méthode 3: Tentative avec l'ID utilisateur si disponible
-                            if (empty($employeeSignatureBase64) && isset($contract) && isset($contract->user_id)) {
-                                $userId = $contract->user_id;
-                                $storagePath = 'public/signatures/' . $userId . '_employee.png';
-                                
-                                if (\Storage::exists($storagePath)) {
-                                    try {
-                                        $employeeSignatureContent = \Storage::get($storagePath);
-                                        if ($employeeSignatureContent !== false) {
-                                            $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                                            \Log::info('PDF: Signature employé récupérée via Storage avec user_id', [
-                                                'user_id' => $userId,
-                                                'path' => $storagePath,
-                                                'taille_base64' => strlen($employeeSignatureBase64)
-                                            ]);
-                                        }
-                                    } catch (\Exception $e) {
-                                        \Log::error('PDF: Exception avec Storage pour employé (user_id): ' . $e->getMessage());
-                                    }
-                                }
-                            }
-                            
-                            // Méthode 4: Utiliser le fichier générique employee_signature.png comme dernier recours
-                            if (empty($employeeSignatureBase64)) {
-                                $genericPath = storage_path('app/public/signatures/employee_signature.png');
-                                if (file_exists($genericPath)) {
-                                    try {
-                                        $employeeSignatureContent = file_get_contents($genericPath);
-                                        if ($employeeSignatureContent !== false) {
-                                            $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                                            \Log::info('PDF: Signature employé récupérée via fichier générique', [
-                                                'path' => $genericPath,
-                                                'taille_base64' => strlen($employeeSignatureBase64)
-                                            ]);
-                                        }
-                                    } catch (\Exception $e) {
-                                        \Log::error('PDF: Exception avec fichier générique: ' . $e->getMessage());
-                                    }
-                                }
+                            // Chercher la signature de l'employé si ce n'est pas déjà fait
+                            if (!$employeeSignatureBase64Data && isset($contract) && $showEmployeeSignature) {
+                                $signatureHelper = new \App\Temp_Fixes\SignatureHelper();
+                                $employeeId = $contract->user_id;
+                                $employeeSignatureBase64Data = $signatureHelper->prepareSignatureForPdf('employee', $employeeId);
+                                \Log::info('Chargement signature employé via helper', ['employee_id' => $employeeId]);
                             }
                         @endphp
                         
-                        @if(!empty($employeeSignatureBase64))
-                            <img src="data:image/png;base64,{{ $employeeSignatureBase64 }}" alt="Signature de l'employé" style="max-height: 100px; margin: 0 auto;">
+                        @if($showEmployeeSignature)
+                            @if($employeeSignatureBase64Data)
+                                <img src="{{ $employeeSignatureBase64Data }}" alt="Signature de l'employé" style="max-height: 70px; margin-top: 20px;">
+                            @elseif($employeeSignatureUrl)
+                                <img src="{{ $employeeSignatureUrl }}" alt="Signature de l'employé" style="max-height: 70px; margin-top: 20px;">
+                            @else
+                                <div style="width:150px; height:70px; border-bottom: 1px solid #000; display:inline-block; text-align:center; margin: 0 auto;">
+                                    <span style="font-size: 8pt; color: #666;">(signature)</span>
+                                </div>
+                            @endif
                         @else
-                            <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block; text-align:center; margin: 0 auto;">
-                                Signature de l'employé
+                            <div style="width:150px; height:70px; border-bottom: 1px solid #000; display:inline-block; text-align:center; margin: 0 auto;">
+                                <span style="font-size: 8pt; color: #666;">(signature)</span>
                             </div>
                         @endif
                         </div>
                     </td>
                 </tr>
+
             </table>
         </div>
     </div>
@@ -419,109 +402,60 @@
     <!-- Forcer un saut de page avant l'annexe -->
     <div style="page-break-before: always;"></div>
 
-    <div class="addendum" style="border-top: none; margin-top: 50px;">
-        <p>Paris le {{ (is_object($data) && isset($data->contract_start_date)) ? date('d/m/Y', strtotime($data->contract_start_date)) : '___________' }}</p>
+    <div class="addendum" style="border-top: none; margin-top: 30px;">
+        <p style="font-size: 10pt;">Paris le {{ (is_object($data) && isset($data->contract_start_date)) ? date('d/m/Y', strtotime($data->contract_start_date)) : '___________' }}</p>
 
-        <p>Je soussigné, {{ (is_object($data) && isset($data->gender) && $data->gender == 'M') ? 'Monsieur' : 'Madame' }} {{ (is_object($data) && isset($data->last_name)) ? $data->last_name : '___________' }} {{ (is_object($data) && isset($data->first_name)) ? $data->first_name : '___________' }}, né(e) le {{ (is_object($data) && isset($data->birth_date)) ? date('d/m/Y', strtotime($data->birth_date)) : '___________' }} à {{ (is_object($data) && isset($data->birth_place)) ? $data->birth_place : '___________' }} souhaite ne solliciter un poste que de {{ (is_object($data) && isset($data->weekly_hours)) ? $data->weekly_hours : '___________' }} heures par semaine au sein de la société Whatever, pour le moment.</p>
+        <p style="font-size: 10pt;">Je soussigné, {{ (is_object($data) && isset($data->gender) && $data->gender == 'M') ? 'Monsieur' : 'Madame' }} {{ (is_object($data) && isset($data->last_name)) ? $data->last_name : '___________' }} {{ (is_object($data) && isset($data->first_name)) ? $data->first_name : '___________' }}, né(e) le {{ (is_object($data) && isset($data->birth_date)) ? date('d/m/Y', strtotime($data->birth_date)) : '___________' }} à {{ (is_object($data) && isset($data->birth_place)) ? $data->birth_place : '___________' }} souhaite ne solliciter un poste que de {{ (is_object($data) && isset($data->weekly_hours)) ? $data->weekly_hours : '___________' }} heures par semaine au sein de la société Whatever, pour le moment.</p>
 
-        <p>Cordialement,</p>
+        <p style="font-size: 10pt;">Cordialement,</p>
 
-        <div style="margin-top:60px;">
-            <p><strong>Signature :</strong></p>
+        <div style="margin-top:40px;">
+            <p style="font-size: 10pt;"><strong>Signature :</strong></p>
             @php
-                $employeeSignaturePath = '';
-                if (isset($employee_signature)) {
-                    $employeeSignaturePath = storage_path('app/public/signatures/' . basename($employee_signature));
+                // Vérifier si la signature employé doit être affichée
+                $showEmployeeSignature = false;
+                
+                // Utiliser la variable explicite show_employee_signature
+                if (isset($show_employee_signature) && $show_employee_signature === true) {
+                    $showEmployeeSignature = true;
+                }
+                // Sinon, vérifier le statut du contrat
+                elseif (isset($contract) && isset($contract->status) && 
+                       ($contract->status === 'employee_signed' || 
+                        $contract->status === 'completed')) {
+                    $showEmployeeSignature = true;
                 }
                 
-                // Essayer de déterminer le fichier basé sur l'utilisateur du contrat
-                if (empty($employeeSignaturePath) && isset($contract) && isset($contract->user_id)) {
-                    $userId = $contract->user_id;
-                    $employeeSignatureFilename = $userId . '_employee.png';
-                    $employeeSignaturePath = storage_path('app/public/signatures/' . $employeeSignatureFilename);
-                    \Log::info('PDF Annexe: Tentative alternative avec user_id', [
-                        'user_id' => $userId,
-                        'filename' => $employeeSignatureFilename,
-                        'chemin' => $employeeSignaturePath
-                    ]);
-                }
+                // Utiliser la signature en base64 si disponible
+                $employeeSignatureBase64Data = $employeeSignatureBase64 ?? null;
                 
-                $employeeSignatureBase64 = '';
-                
-                // Méthode 1: Lecture directe du fichier
-                if (!empty($employeeSignaturePath) && file_exists($employeeSignaturePath)) {
-                    try {
-                        $employeeSignatureContent = file_get_contents($employeeSignaturePath);
-                        if ($employeeSignatureContent !== false) {
-                            $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                            \Log::info('PDF Annexe: Signature employé lue avec succès (méthode directe)', [
-                                'taille_base64' => strlen($employeeSignatureBase64)
-                            ]);
-                        }
-                    } catch (\Exception $e) {
-                        \Log::error('PDF Annexe: Exception lors de la lecture de la signature employé: ' . $e->getMessage());
-                    }
-                }
-                
-                // Méthode 2: Utilisation de Storage si la méthode 1 a échoué
-                if (empty($employeeSignatureBase64) && isset($employee_signature)) {
-                    $storagePath = 'public/signatures/' . basename($employee_signature);
-                    if (\Storage::exists($storagePath)) {
-                        try {
-                            $employeeSignatureContent = \Storage::get($storagePath);
-                            if ($employeeSignatureContent !== false) {
-                                $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                            }
-                        } catch (\Exception $e) {
-                            \Log::error('PDF Annexe: Exception avec Storage pour employé: ' . $e->getMessage());
-                        }
-                    }
-                }
-                
-                // Méthode 3: Tentative avec l'ID utilisateur si disponible
-                if (empty($employeeSignatureBase64) && isset($contract) && isset($contract->user_id)) {
-                    $userId = $contract->user_id;
-                    $storagePath = 'public/signatures/' . $userId . '_employee.png';
-                    
-                    if (\Storage::exists($storagePath)) {
-                        try {
-                            $employeeSignatureContent = \Storage::get($storagePath);
-                            if ($employeeSignatureContent !== false) {
-                                $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                            }
-                        } catch (\Exception $e) {
-                            \Log::error('PDF: Exception avec Storage pour employé (user_id): ' . $e->getMessage());
-                        }
-                    }
-                }
-                
-                // Méthode 4: Utiliser le fichier générique employee_signature.png comme dernier recours
-                if (empty($employeeSignatureBase64)) {
-                    $genericPath = storage_path('app/public/signatures/employee_signature.png');
-                    if (file_exists($genericPath)) {
-                        try {
-                            $employeeSignatureContent = file_get_contents($genericPath);
-                            if ($employeeSignatureContent !== false) {
-                                $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                                \Log::info('PDF Annexe: Signature employé récupérée via fichier générique', [
-                                    'path' => $genericPath,
-                                    'taille_base64' => strlen($employeeSignatureBase64)
-                                ]);
-                            }
-                        } catch (\Exception $e) {
-                            \Log::error('PDF Annexe: Exception avec fichier générique: ' . $e->getMessage());
-                        }
-                    }
+                // Chercher la signature de l'employé si ce n'est pas déjà fait
+                if (!$employeeSignatureBase64Data && isset($contract) && $showEmployeeSignature) {
+                    $signatureHelper = new \App\Temp_Fixes\SignatureHelper();
+                    $employeeId = $contract->user_id;
+                    $employeeSignatureBase64Data = $signatureHelper->prepareSignatureForPdf('employee', $employeeId);
+                    \Log::info('Chargement signature employé via helper', ['employee_id' => $employeeId]);
                 }
             @endphp
             
-            @if(!empty($employeeSignatureBase64))
-                <img src="data:image/png;base64,{{ $employeeSignatureBase64 }}" alt="Signature de l'employé" style="max-height: 100px; margin-top: 20px;">
+            @if($showEmployeeSignature)
+                @if($employeeSignatureBase64Data)
+                    <img src="{{ $employeeSignatureBase64Data }}" alt="Signature de l'employé" style="max-height: 70px; margin-top: 20px;">
+                @elseif($employeeSignatureUrl)
+                    <img src="{{ $employeeSignatureUrl }}" alt="Signature de l'employé" style="max-height: 70px; margin-top: 20px;">
+                @else
+                    <div style="width:150px; height:70px; border-bottom: 1px solid #000; display:inline-block; text-align:center; margin: 0 auto;">
+                        <span style="font-size: 8pt; color: #666;">(signature)</span>
+                    </div>
+                @endif
             @else
-                <div style="width:200px; height:100px; border-bottom: 1px solid #000; margin-top: 20px;">
+                <div style="width:150px; height:70px; border-bottom: 1px solid #000; display:inline-block; text-align:center; margin: 0 auto;">
+                    <span style="font-size: 8pt; color: #666;">(signature)</span>
                 </div>
             @endif
         </div>
     </div>  
+    
+    
 </body>
 </html>

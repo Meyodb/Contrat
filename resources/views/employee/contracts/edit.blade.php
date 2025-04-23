@@ -159,7 +159,9 @@
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     <label for="social_security_number" class="form-label">Numéro de sécurité sociale</label>
-                                    <input type="text" class="form-control @error('data.social_security_number') is-invalid @enderror" id="social_security_number" name="data[social_security_number]" value="{{ old('data.social_security_number', $contract->data ? $contract->data->social_security_number : '') }}" required>
+                                    <input type="text" class="form-control @error('data.social_security_number') is-invalid @enderror" id="social_security_number" name="data[social_security_number]" value="{{ old('data.social_security_number', $contract->data ? $contract->data->social_security_number : '') }}" pattern="^[1-2][0-9]{2}(0[1-9]|1[0-2])(2[AB]|[0-9]{2})[0-9]{8}$" oninput="validateSSN(this)">
+                                    <small class="form-text text-muted">Format français uniquement (15 chiffres). Ce champ peut être laissé vide.</small>
+                                    <div id="ssnFeedback" class="invalid-feedback" style="display: none;">Le numéro de sécurité sociale doit être au format français (15 chiffres).</div>
                                     @error('data.social_security_number')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -192,18 +194,23 @@
                             
                             <div class="row mb-3">
                                 <div class="col-md-12">
-                                    <label for="employee_photo" class="form-label">Photo d'identité</label>
-                                    <input type="file" class="form-control @error('employee_photo') is-invalid @enderror" id="employee_photo" name="employee_photo" accept="image/jpeg,image/png,image/gif">
-                                    <div class="form-text">Téléchargez une photo d'identité (format JPG, PNG ou GIF, max 2MB)</div>
-                                    @error('employee_photo')
+                                    <label for="profile_photo" class="form-label">Photo de profil</label>
+                                    <div class="text-center mb-3">
+                                        @if(Auth::user()->profile_photo_path)
+                                            <img src="{{ strpos(Auth::user()->profile_photo_path, 'photos/') === 0 ? asset(Auth::user()->profile_photo_path) : Storage::url(Auth::user()->profile_photo_path) }}" 
+                                                alt="Photo de profil" class="img-thumbnail rounded-circle" style="width: 150px; height: 150px; object-fit: cover;"
+                                                onerror="this.onerror=null; this.src='{{ asset('img/default-profile.png') }}'; console.error('Image non trouvée');">
+                                        @else
+                                            <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 150px; height: 150px; font-size: 3rem; margin: 0 auto;">
+                                                {{ strtoupper(substr(Auth::user()->name, 0, 1)) }}
+                                            </div>
+                                        @endif
+                                    </div>
+                                    <input type="file" class="form-control @error('profile_photo') is-invalid @enderror" id="profile_photo" name="profile_photo" accept="image/jpeg,image/png,image/gif">
+                                    <div class="form-text">Téléchargez une photo de profil (format JPG, PNG ou GIF, max 2MB). Cette photo sera utilisée comme votre photo de profil sur la plateforme.</div>
+                                    @error('profile_photo')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
-                                    
-                                    @if($contract->data && $contract->data->photo_path)
-                                        <div class="mt-2">
-                                            <img src="{{ asset('storage/' . $contract->data->photo_path) }}" alt="Photo d'identité" class="img-thumbnail" style="max-height: 150px;">
-                                        </div>
-                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -246,4 +253,27 @@
         </div>
     </div>
 </div>
+
+<script>
+function validateSSN(input) {
+    const regex = /^[1-2][0-9]{2}(0[1-9]|1[0-2])(2[AB]|[0-9]{2})[0-9]{8}$/;
+    const feedbackEl = document.getElementById('ssnFeedback');
+    
+    // Si le champ est vide, c'est valide
+    if (input.value === '') {
+        input.classList.remove('is-invalid');
+        feedbackEl.style.display = 'none';
+        return;
+    }
+    
+    // Si le format est incorrect
+    if (!regex.test(input.value)) {
+        input.classList.add('is-invalid');
+        feedbackEl.style.display = 'block';
+    } else {
+        input.classList.remove('is-invalid');
+        feedbackEl.style.display = 'none';
+    }
+}
+</script>
 @endsection 

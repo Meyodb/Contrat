@@ -75,6 +75,8 @@
         <div class="content">
             <p>Il a été convenu ce qui suit :</p>
             
+            <p><strong>Motif de l'avenant :</strong> {{ $motif ?? 'Modification de la durée du travail et de la rémunération' }}</p>
+            
             <p>D'un commun accord, nous avons décidé de modifier la durée hebdomadaire de 
             {{ isset($employee_gender) && $employee_gender == 'F' ? 'Madame' : 'Monsieur' }} {{ $employee_name ?? 'Sarah Hersom' }} 
             à {{ $new_hours ?? '20' }} heures hebdomadaire à compter du {{ isset($effective_date) ? \Carbon\Carbon::parse($effective_date)->format('d F Y') : '1er mars 2025' }}.</p>

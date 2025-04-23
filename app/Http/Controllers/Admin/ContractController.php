@@ -20,6 +20,9 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Temp_Fixes\SignatureHelper;
 use App\Notifications\AvenantCreated;
 use Carbon\Carbon;
+use App\Http\Controllers\PdfController;
+use App\Models\CompanyInfo;
+use Illuminate\Support\Facades\Auth;
 
 class ContractController extends Controller
 {
@@ -28,7 +31,7 @@ class ContractController extends Controller
      */
     public function index()
     {
-        $contracts = Contract::with(['user', 'template', 'data'])->latest()->paginate(10);
+        $contracts = Contract::with(['user', 'data'])->orderBy('created_at', 'desc')->paginate(10);
         return view('admin.contracts.index', compact('contracts'));
     }
 
@@ -96,7 +99,8 @@ class ContractController extends Controller
             'data.phone' => 'nullable|string|max:20',
             'data.email' => 'nullable|email|max:255',
             'data.nationality' => 'nullable|string|max:100',
-            'employee_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'data.social_security_number' => 'nullable',
+            'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
         
         // Préparer les données à mettre à jour
@@ -116,30 +120,77 @@ class ContractController extends Controller
             }
         }
         
-        // Traiter la photo de l'employé si elle est fournie
-        if ($request->hasFile('employee_photo')) {
-            // Créer le répertoire de stockage s'il n'existe pas
-            $photoDir = storage_path('app/public/employee_photos');
-            if (!file_exists($photoDir)) {
-                mkdir($photoDir, 0755, true);
+        // Traiter la photo de profil si elle est fournie
+        if ($request->hasFile('profile_photo')) {
+            try {
+                // Récupérer le fichier
+                $photo = $request->file('profile_photo');
+                $photoName = 'profile_' . $contract->user->id . '_' . time() . '.' . $photo->getClientOriginalExtension();
+                
+                // Méthode 1: utiliser Storage::putFileAs qui gère automatiquement les permissions
+                $photoPath = 'profile-photos/' . $photoName;
+                Storage::disk('public')->putFileAs('profile-photos', $photo, $photoName);
+                
+                // En cas d'échec de la première méthode, essayer une approche alternative
+                if (!Storage::disk('public')->exists($photoPath)) {
+                    // Méthode 2: utiliser le contenu de l'image directement
+                    $imageContent = file_get_contents($photo->getRealPath());
+                    Storage::disk('public')->put($photoPath, $imageContent);
+                    
+                    \Log::info('Admin: Photo sauvegardée avec la méthode 2 (contenu)', [
+                        'path' => $photoPath,
+                        'size' => strlen($imageContent)
+                    ]);
+                } else {
+                    \Log::info('Admin: Photo sauvegardée avec la méthode 1 (putFileAs)', [
+                        'path' => $photoPath
+                    ]);
+                }
+                
+                // Vérifier que le fichier a bien été sauvegardé
+                if (Storage::disk('public')->exists($photoPath)) {
+                    // Mettre à jour le champ profile_photo_path de l'utilisateur
+                    if ($contract->user) {
+                        $contract->user->update([
+                            'profile_photo_path' => $photoPath
+                        ]);
+                        \Log::info('Admin: Photo de profil utilisateur mise à jour avec succès: ' . $photoName);
+                        
+                        // Flash message pour informer l'administrateur
+                        session()->flash('info', 'La photo de profil a été mise à jour avec succès.');
+                    }
+                } else {
+                    // Méthode 3: sauvegarder dans un dossier public directement
+                    $publicDir = public_path('photos');
+                    if (!file_exists($publicDir)) {
+                        mkdir($publicDir, 0777, true);
+                    }
+                    
+                    $publicPath = $publicDir . '/' . $photoName;
+                    move_uploaded_file($photo->getRealPath(), $publicPath);
+                    
+                    if (file_exists($publicPath)) {
+                        if ($contract->user) {
+                            $contract->user->update([
+                                'profile_photo_path' => 'photos/' . $photoName
+                            ]);
+                            \Log::info('Admin: Photo sauvegardée avec la méthode 3 (public dir)', [
+                                'path' => 'photos/' . $photoName
+                            ]);
+                            
+                            session()->flash('info', 'La photo de profil a été mise à jour avec succès (méthode alternative).');
+                        }
+                    } else {
+                        \Log::error('Admin: Impossible de sauvegarder la photo avec toutes les méthodes');
+                        session()->flash('error', 'Impossible de sauvegarder la photo de profil. Veuillez essayer une autre méthode.');
+                    }
+                }
+            } catch (\Exception $e) {
+                \Log::error('Admin: Erreur lors de l\'upload de la photo: ' . $e->getMessage(), [
+                    'exception' => $e
+                ]);
+                session()->flash('error', 'Une erreur est survenue lors de l\'upload de la photo: ' . $e->getMessage());
             }
-            
-            // S'assurer que le lien symbolique existe
-            if (!file_exists(public_path('storage'))) {
-                \Artisan::call('storage:link');
-            }
-            
-            // Stocker la photo
-            $photo = $request->file('employee_photo');
-            $photoName = 'employee_' . $contract->id . '_' . time() . '.' . $photo->getClientOriginalExtension();
-            $photo->storeAs('public/employee_photos', $photoName);
-            
-            // Ajouter le chemin de la photo aux données à mettre à jour
-            $dataToUpdate['photo_path'] = 'employee_photos/' . $photoName;
-            
-            // Log pour débogage
-            \Log::info('Photo enregistrée: ' . $photoName);
-            \Log::info('Chemin complet: ' . storage_path('app/public/employee_photos/' . $photoName));
         }
         
         // Récupérer ou créer l'entrée ContractData
@@ -173,10 +224,10 @@ class ContractController extends Controller
     private function calculateDerivedFields($contractData)
     {
         // Les heures de travail sont maintenant directement hebdomadaires
-        // Calculer les heures mensuelles (work_hours * 4.33)
+        // Calculer les heures mensuelles (work_hours / 5 * 21.6)
         if ($contractData->work_hours) {
             $contractData->weekly_hours = $contractData->work_hours;
-            $contractData->monthly_hours = round($contractData->work_hours * 4.33, 2);
+            $contractData->monthly_hours = round($contractData->work_hours / 5 * 21.6, 2);
             
             // Calculer les heures supplémentaires hebdomadaires (20% des heures hebdomadaires)
             $contractData->weekly_overtime = round($contractData->weekly_hours * 0.2, 2);
@@ -210,7 +261,17 @@ class ContractController extends Controller
     }
 
     /**
-     * Signe le contrat (administrateur)
+     * Affiche le formulaire de signature pour un contrat
+     * Mais redirige directement vers la signature automatique
+     */
+    public function showSignForm(Contract $contract)
+    {
+        // Rediriger directement vers la signature automatique
+        return $this->sign(request(), $contract);
+    }
+
+    /**
+     * Signe le contrat (administrateur) - automatiquement
      */
     public function sign(Request $request, Contract $contract)
     {
@@ -219,64 +280,23 @@ class ContractController extends Controller
             return redirect()->route('home')->with('status', 'Vous n\'êtes pas autorisé à signer ce contrat.');
         }
         
-        // Vérifier que le contrat est signable (status = submitted)
-        if ($contract->status !== 'submitted') {
+        // Vérifier que le contrat est signable
+        if (!in_array($contract->status, ['submitted', 'draft', 'approved'])) {
             return redirect()->route('admin.contracts.show', $contract)
-                ->with('status', 'Ce contrat ne peut pas être signé pour le moment.');
-        }
-        
-        // Créer les dossiers pour les signatures si nécessaires
-        $privateDir = storage_path('app/private/signatures');
-        if (!file_exists($privateDir)) {
-            mkdir($privateDir, 0755, true);
-        }
-        
-        $publicDir = storage_path('app/public/signatures');
-        if (!file_exists($publicDir)) {
-            mkdir($publicDir, 0755, true);
-        }
-        
-        // S'assurer que le lien symbolique existe
-        if (!file_exists(public_path('storage'))) {
-            \Artisan::call('storage:link');
+                ->with('error', 'Ce contrat ne peut pas être signé pour le moment.');
         }
         
         try {
-            // Utiliser toujours le même nom pour la signature admin
-            $privateSignaturePath = 'private/signatures/admin_signature.png';
-            $publicSignaturePath = 'public/signatures/admin_signature.png';
+            // Utiliser SignatureHelper pour gérer la signature
+            $signatureHelper = new \App\Temp_Fixes\SignatureHelper();
             
-            // Vérifier si la signature existe déjà, sinon utiliser une signature par défaut
-            if (!Storage::exists($publicSignaturePath)) {
-                // Si on n'a pas de signature, créer une signature par défaut simple
-                // Générer une image de signature basique
-                $img = imagecreatetruecolor(300, 100);
-                $background = imagecolorallocate($img, 255, 255, 255);
-                $textcolor = imagecolorallocate($img, 0, 0, 0);
-                
-                // Fond blanc
-                imagefilledrectangle($img, 0, 0, 300, 100, $background);
-                
-                // Dessiner une signature stylisée (lignes courbes)
-                imageline($img, 50, 50, 100, 30, $textcolor);
-                imageline($img, 100, 30, 150, 70, $textcolor);
-                imageline($img, 150, 70, 200, 40, $textcolor);
-                imageline($img, 200, 40, 250, 60, $textcolor);
-                
-                // Sauvegarder l'image
-                ob_start();
-                imagepng($img);
-                $signatureContent = ob_get_clean();
-                imagedestroy($img);
-                
-                // Sauvegarder dans les deux emplacements
-                Storage::put($privateSignaturePath, $signatureContent);
-                Storage::put($publicSignaturePath, $signatureContent);
-                
-                \Log::info('Signature admin créée', [
-                    'private_path' => $privateSignaturePath,
-                    'public_path' => $publicSignaturePath
-                ]);
+            // Vérifier si la signature admin existe déjà, sinon la créer
+            $adminSignature = $signatureHelper->prepareSignatureForPdf('admin');
+            
+            if (!$adminSignature) {
+                \Log::error('Erreur lors de la génération ou récupération de la signature admin');
+                return redirect()->route('admin.contracts.show', $contract)
+                    ->with('error', 'Une erreur est survenue avec la signature administrateur.');
             }
             
             // L'URL est maintenant toujours la même
@@ -316,34 +336,60 @@ class ContractController extends Controller
         }
         
         try {
-            // Generate a unique filename for the contract
-            $user = $contract->user;
+            // Nettoyer les anciennes versions des contrats et fichiers temporaires
+            $pdfController = new \App\Http\Controllers\PdfController();
             
             // Format NOM_PRENOM_CONTRAT ou NOM_PRENOM_AVENANT_N
-            $nameParts = explode(' ', trim($user->name));
-            $lastName = strtoupper(array_shift($nameParts));
-            $firstName = implode('_', array_map('ucfirst', $nameParts));
-            
+        $user = $contract->user;
+        $nameParts = explode(' ', trim($user->name));
+        $lastName = strtoupper(array_shift($nameParts));
+        $firstName = implode('_', array_map('ucfirst', $nameParts));
+                
             if ($contract->isAvenant()) {
                 $filename = $lastName . '_' . $firstName . '_AVENANT_' . $contract->avenant_number . '.pdf';
+                // Supprimer les anciennes versions de cet avenant
+                $pattern = $lastName . '_' . $firstName . '_AVENANT_' . $contract->avenant_number . '.pdf';
+                $pdfController->cleanupOldFiles('contracts', $pattern, 0); // 0 pour tout supprimer
             } else {
                 $filename = $lastName . '_' . $firstName . '_CONTRAT.pdf';
+                // Supprimer les anciennes versions de ce contrat
+                $pattern = $lastName . '_' . $firstName . '_CONTRAT.pdf';
+                $pdfController->cleanupOldFiles('contracts', $pattern, 0); // 0 pour tout supprimer
             }
+            
+            // Nettoyer les fichiers temporaires associés
+            $pdfController->cleanupOldFiles('temp', 'preview_contract_' . $contract->id . '_*');
+            $pdfController->cleanupOldFiles('temp', 'debug_*_preview_contract_' . $contract->id . '_*.html');
             
             // Ensure the contracts directory exists with correct permissions
-            if (!Storage::exists('contracts')) {
-                Storage::makeDirectory('contracts', 0755);
-            }
-            
-            // Ensure filesystem path exists with proper permissions
-            $contractsDir = storage_path('app/contracts');
+            $contractsDir = storage_path('app/private/contracts');
             if (!file_exists($contractsDir)) {
-                mkdir($contractsDir, 0755, true);
+                if (!mkdir($contractsDir, 0755, true)) {
+                    throw new \Exception('Impossible de créer le répertoire des contrats: ' . $contractsDir);
+                }
+                \Log::info('Répertoire des contrats créé: ' . $contractsDir);
             }
             
-            // Vérifier si le répertoire a bien été créé
-            if (!is_dir($contractsDir) || !is_writable($contractsDir)) {
-                throw new \Exception('Le répertoire des contrats n\'existe pas ou n\'est pas accessible en écriture: ' . $contractsDir);
+            // Vérifier si le répertoire a bien été créé et est accessible en écriture
+            if (!is_dir($contractsDir)) {
+                throw new \Exception('Le répertoire des contrats n\'existe pas: ' . $contractsDir);
+            }
+            
+            if (!is_writable($contractsDir)) {
+                // Tenter de modifier les permissions
+                chmod($contractsDir, 0755);
+                if (!is_writable($contractsDir)) {
+                    throw new \Exception('Le répertoire des contrats n\'est pas accessible en écriture: ' . $contractsDir);
+                }
+            }
+            
+            // Créer aussi le répertoire temp s'il n'existe pas
+            $tempDir = storage_path('app/temp');
+            if (!file_exists($tempDir)) {
+                if (!mkdir($tempDir, 0755, true)) {
+                    throw new \Exception('Impossible de créer le répertoire temporaire: ' . $tempDir);
+                }
+                \Log::info('Répertoire temporaire créé: ' . $tempDir);
             }
             
             // Vérifier que les fichiers de signature existent
@@ -444,11 +490,11 @@ class ContractController extends Controller
             }
             
             // Pour débogage, sauvegarder le HTML généré
-            $htmlDebugPath = storage_path('app/temp/debug_' . $filename . '.html');
-            $htmlDebugDir = dirname($htmlDebugPath);
+            $htmlDebugDir = storage_path('app/temp');
             if (!file_exists($htmlDebugDir)) {
                 mkdir($htmlDebugDir, 0755, true);
             }
+            $htmlDebugPath = $htmlDebugDir . '/debug_' . $filename . '.html';
             file_put_contents($htmlDebugPath, $html);
             \Log::info('Génération PDF - HTML sauvegardé pour débogage', ['path' => $htmlDebugPath]);
             
@@ -457,12 +503,12 @@ class ContractController extends Controller
             $pdf->setPaper('a4');
             
             // Sauvegarder le PDF
-            $pdfPath = storage_path('app/contracts/' . $filename);
+            $pdfPath = storage_path('app/private/contracts/' . $filename);
             \Log::info('Tentative de sauvegarde du PDF', ['path' => $pdfPath]);
             
             try {
-                $pdf->save($pdfPath);
-                \Log::info('PDF sauvegardé avec succès', ['path' => $pdfPath]);
+        $pdf->save($pdfPath);
+                \Log::info('PDF sauvegardé avec succès', ['path' => $pdfPath, 'size' => filesize($pdfPath)]);
             } catch (\Exception $e) {
                 \Log::error('Erreur lors de la sauvegarde du PDF', [
                     'path' => $pdfPath,
@@ -479,24 +525,42 @@ class ContractController extends Controller
                 throw new \Exception($errorMsg);
             }
             
-            // Update the contract with the PDF path and change status
-            $contract->final_document_path = 'contracts/' . $filename;
-            $contract->generated_at = now();
-            
-            // Si le contrat est signé par les deux parties, marquer comme complété
-            if ($contract->admin_signature && $contract->employee_signature) {
-                $contract->status = 'completed';
-                $contract->completed_at = now();
-            } else {
-                $contract->status = 'generated';
+            // Verification du fichier généré
+            $fileSize = filesize($pdfPath);
+            if ($fileSize <= 0) {
+                $errorMsg = 'Le fichier PDF a été créé mais est vide (0 octets): ' . $pdfPath;
+                \Log::error($errorMsg);
+                throw new \Exception($errorMsg);
             }
+        
+        // Update the contract with the PDF path and change status
+            $contract->final_document_path = 'contracts/' . $filename;
+        $contract->generated_at = now();
+        
+        // Si le contrat est signé par les deux parties, marquer comme complété
+        if ($contract->admin_signature && $contract->employee_signature) {
+            $contract->status = 'completed';
+            $contract->completed_at = now();
+        } else {
+            $contract->status = 'generated';
+        }
+        
+        $contract->save();
             
-            $contract->save();
-            
-            return redirect()->route('admin.contracts.show', $contract)
+            \Log::info('Contrat généré et enregistré avec succès', [
+                'contract_id' => $contract->id,
+                'path' => $contract->final_document_path,
+                'size' => $fileSize,
+                'status' => $contract->status
+            ]);
+
+        return redirect()->route('admin.contracts.show', $contract)
                 ->with('success', 'Le document a été généré avec succès.');
         } catch (\Exception $e) {
-            \Log::error('Erreur lors de la génération du contrat: ' . $e->getMessage());
+            \Log::error('Erreur lors de la génération du contrat: ' . $e->getMessage(), [
+                'contract_id' => $contract->id,
+                'trace' => $e->getTraceAsString()
+            ]);
             return redirect()->route('admin.contracts.show', $contract)
                 ->with('error', 'Une erreur est survenue lors de la génération du contrat: ' . $e->getMessage());
         }
@@ -580,101 +644,108 @@ class ContractController extends Controller
     }
 
     /**
-     * Prévisualise le contrat
+     * Prévisualise un contrat (génère un aperçu PDF)
+     * 
+     * @param Contract $contract Le contrat à prévisualiser
+     * @return \Illuminate\Http\Response
      */
     public function preview(Contract $contract)
     {
         try {
-            // Générer directement la prévisualisation comme dans l'ancienne méthode
-            // Augmenter le temps d'exécution maximum pour éviter les timeouts
-            set_time_limit(300);
-            ini_set('memory_limit', '512M');
+            // Vérifier que l'utilisateur est bien autorisé
+            if (!auth()->user()->is_admin) {
+                return back()->with('error', 'Vous n\'êtes pas autorisé à prévisualiser ce contrat.');
+            }
             
-            // Préparer les données pour le template
-            $contractData = [
-                'contract' => $contract,
-                'user' => $contract->user,
-                'admin' => $contract->admin ?? auth()->user(),
-                'data' => $contract->data,
-            ];
+            \Log::info('Demande de prévisualisation d\'un contrat par un administrateur', [
+                'contract_id' => $contract->id,
+                'admin_id' => auth()->id(),
+                'contract_type' => $contract->contract_type,
+            ]);
             
-            // Utiliser SignatureHelper pour préparer les signatures
+            // Utiliser SignatureHelper pour préparer la signature de l'admin
             $signatureHelper = new \App\Temp_Fixes\SignatureHelper();
             
-            // Récupérer la signature de l'administrateur
-            $adminSignatureBase64 = $signatureHelper->prepareSignatureForPdf('admin_signature.png');
-            
-            // Récupérer la signature de l'employé
-            $employeeId = $contract->user_id;
-            $employeeSignatureBase64 = $signatureHelper->prepareSignatureForPdf('employee_signature.png', $employeeId);
-            
-            // Ajouter les signatures aux données du contrat seulement si le contrat est déjà signé
-            if ($contract->status === 'admin_signed' || $contract->status === 'employee_signed' || $contract->status === 'completed') {
-                // Afficher les signatures existantes dans la prévisualisation
-                $contractData['adminSignatureBase64'] = $adminSignatureBase64;
-                $contractData['employeeSignatureBase64'] = $employeeSignatureBase64;
-                \Log::info('Prévisualisation PDF - Signatures incluses (contrat signé)', [
-                    'admin_signature' => !empty($adminSignatureBase64) ? 'Base64 présent (' . strlen($adminSignatureBase64) . ' octets)' : 'Manquante',
-                    'employee_signature' => !empty($employeeSignatureBase64) ? 'Base64 présent (' . strlen($employeeSignatureBase64) . ' octets)' : 'Manquante',
-                    'status' => $contract->status
-                ]);
-            } else {
-                // Ne pas inclure les signatures pour les contrats non signés
-                $contractData['adminSignatureBase64'] = '';
-                $contractData['employeeSignatureBase64'] = '';
-                \Log::info('Prévisualisation PDF - Signatures non incluses (contrat non signé)', [
-                    'status' => $contract->status
-                ]);
+            // S'assurer que la signature admin existe
+            $adminSignaturePath = storage_path('app/public/signatures/admin/admin_signature.png');
+            if (!file_exists($adminSignaturePath)) {
+                \Log::info('Création de la signature admin car elle n\'existe pas');
+                $signatureHelper->createAdminSignature();
             }
             
-            // Ajouter date de génération
-            $contractData['generatedAt'] = now()->format('d/m/Y H:i:s');
+            // Forcer l'affichage de la signature admin en prévisualisation
+            $contract->show_admin_signature = true;
+            $contract->admin_signed_at = $contract->admin_signed_at ?? now();
             
-            // Pour les avenants, ajouter les données spécifiques
-            if ($contract->isAvenant()) {
-                $contractData['avenant_number'] = $contract->avenant_number;
-                $contractData['employee_name'] = $contract->data->full_name ?? $contract->user->name;
-                $contractData['employee_gender'] = $contract->data->gender ?? 'M';
-                $contractData['contract_date'] = $contract->parentContract->data->contract_signing_date ?? now();
-                $contractData['effective_date'] = $contract->data->effective_date ?? now();
-                $contractData['signing_date'] = $contract->data->contract_signing_date ?? now();
-                $contractData['new_hours'] = $contract->data->work_hours ?? '';
-                $contractData['new_salary'] = $contract->data->monthly_gross_salary ?? '';
-                $contractData['monthly_hours'] = $contract->data->monthly_hours ?? '';
+            // Si le contrat est dans l'état "completed", forcer aussi l'affichage de la signature employé
+            if ($contract->status === 'completed' || $contract->status === 'employee_signed') {
+                $contract->show_employee_signature = true;
                 
-                // Générer le HTML avec le template d'avenant
-                $html = view('pdf.avenant-template', $contractData)->render();
-            } else {
-                // Générer le HTML avec le template Blade (utiliser le template CDI)
-                $html = view('pdf.cdi-template', $contractData)->render();
+                // Générer la signature de l'employé en base64 pour le PDF
+                $signatureHelper = new \App\Temp_Fixes\SignatureHelper();
+                $employeeId = $contract->user_id;
+                $contract->employeeSignatureBase64 = $signatureHelper->prepareSignatureForPdf('employee', $employeeId);
+                
+                \Log::info('Signature employé générée pour prévisualisation admin', [
+                    'contract_id' => $contract->id,
+                    'employee_id' => $employeeId,
+                    'status' => $contract->status
+                ]);
             }
             
-            // Créer le PDF
-            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html);
-            $pdf->setPaper('a4');
-            
-            // Générer un nom de fichier pour le document PDF
-            $filename = 'contrat_' . $contract->id . '_' . str_replace(' ', '_', $contract->user->name ?? 'employe') . '_preview.pdf';
-            
-            // Créer le répertoire si nécessaire avec les bonnes permissions
-            $tempDir = storage_path('app/temp');
-            if (!file_exists($tempDir)) {
-                mkdir($tempDir, 0755, true);
+            // Générer directement la signature admin en base64 pour le PDF
+            try {
+                if (file_exists($adminSignaturePath)) {
+                    $adminMime = mime_content_type($adminSignaturePath);
+                    $adminData = file_get_contents($adminSignaturePath);
+                    $contract->adminSignatureBase64 = 'data:' . $adminMime . ';base64,' . base64_encode($adminData);
+                    
+                    // Vérifier si la signature est correctement chargée et non vide
+                    if (empty($contract->adminSignatureBase64) || strlen($contract->adminSignatureBase64) < 100) {
+                        \Log::error('Signature admin vide ou trop petite', [
+                            'path' => $adminSignaturePath,
+                            'size' => strlen($adminData),
+                            'base64_length' => strlen($contract->adminSignatureBase64 ?? '')
+                        ]);
+                        
+                        // Fallback - utiliser SignatureHelper pour générer une nouvelle signature
+                        $contract->adminSignatureBase64 = $signatureHelper->prepareSignatureForPdf('admin', auth()->id());
+                        \Log::info('Utilisation d\'une signature admin de secours générée par SignatureHelper');
+                    } else {
+                        \Log::info('Signature admin convertie en base64 pour prévisualisation admin', [
+                            'path' => $adminSignaturePath,
+                            'size' => strlen($adminData)
+                        ]);
+                    }
+                } else {
+                    \Log::error('Signature admin introuvable', ['path' => $adminSignaturePath]);
+                    // Fallback - utiliser SignatureHelper pour générer une nouvelle signature
+                    $contract->adminSignatureBase64 = $signatureHelper->prepareSignatureForPdf('admin', auth()->id());
+                    \Log::info('Utilisation d\'une signature admin de secours générée par SignatureHelper');
+                }
+            } catch (\Exception $e) {
+                \Log::error('Erreur lors de la conversion de la signature admin', [
+                    'error' => $e->getMessage()
+                ]);
+                // Fallback - utiliser SignatureHelper pour générer une nouvelle signature
+                $contract->adminSignatureBase64 = $signatureHelper->prepareSignatureForPdf('admin', auth()->id());
+                \Log::info('Utilisation d\'une signature admin de secours générée par SignatureHelper après exception');
             }
             
-            // Sauvegarder le PDF temporaire
-            $pdfPath = storage_path('app/temp/' . $filename);
-            $pdf->save($pdfPath);
+            // Utiliser le contrôleur PDF pour générer la prévisualisation
+            $pdfController = new \App\Http\Controllers\PdfController();
+            $response = $pdfController->previewContract($contract);
             
-            // Retourner le PDF pour prévisualisation
-            return response()->file($pdfPath);
+            return $response;
+            
         } catch (\Exception $e) {
-            \Log::error('Erreur lors de la prévisualisation du contrat: ' . $e->getMessage(), [
+            \Log::error('Erreur lors de la prévisualisation du contrat:', [
                 'contract_id' => $contract->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            return back()->with('error', 'Erreur lors de la prévisualisation du contrat.');
+            
+            return back()->with('error', 'Erreur lors de la prévisualisation du contrat: ' . $e->getMessage());
         }
     }
 
@@ -687,23 +758,33 @@ class ContractController extends Controller
         if (!auth()->user()->is_admin && auth()->id() !== $contract->user_id) {
             return redirect()->route('home')->with('status', 'Vous n\'êtes pas autorisé à télécharger ce contrat.');
         }
-
+        
         try {
             // Augmenter le temps d'exécution maximum pour éviter les timeouts
             set_time_limit(300);
             ini_set('memory_limit', '512M');
-
+            
             // Si le contrat a déjà un document final et qu'il est accessible, le télécharger directement
             if ($contract->final_document_path && Storage::exists($contract->final_document_path)) {
                 $path = storage_path('app/' . $contract->final_document_path);
-                \Log::info('Téléchargement du contrat', ['path' => $path, 'exists' => file_exists($path)]);
-                $filename = 'contrat_' . $contract->id . '_' . str_replace(' ', '_', $contract->user->name) . '.pdf';
                 
-                return response()->download($path, $filename, [
-                    'Content-Type' => 'application/pdf',
-                    'Content-Disposition' => 'attachment; filename="' . $filename . '"'
-                ]);
+                // Double vérification que le fichier existe physiquement
+                if (file_exists($path)) {
+                    \Log::info('Téléchargement du contrat existant', ['path' => $path]);
+                    $filename = 'contrat_' . $contract->id . '_' . str_replace(' ', '_', $contract->user->name) . '.pdf';
+                    
+                    return response()->download($path, $filename, [
+                        'Content-Type' => 'application/pdf',
+                        'Content-Disposition' => 'attachment; filename="' . $filename . '"'
+                    ]);
                 } else {
+                    \Log::warning('Le fichier PDF existe dans la base de données mais pas physiquement', [
+                        'contract_id' => $contract->id,
+                        'path' => $path
+                    ]);
+                    // Continuer pour générer un nouveau fichier
+                }
+            } else {
                 \Log::warning('Tentative de téléchargement d\'un contrat inexistant', [
                     'contract_id' => $contract->id,
                     'final_document_path' => $contract->final_document_path,
@@ -711,8 +792,45 @@ class ContractController extends Controller
                 ]);
             }
             
-            // Si le document n'existe pas, le générer
-            // Créer un nouveau document PHPWord
+            // Créer les répertoires nécessaires s'ils n'existent pas
+            if (!file_exists(storage_path('app/temp'))) {
+                mkdir(storage_path('app/temp'), 0755, true);
+            }
+            
+            if (!file_exists(storage_path('app/private/contracts'))) {
+                mkdir(storage_path('app/private/contracts'), 0755, true);
+            }
+            
+            // Générer un nom de fichier pour le document PDF
+            $filename = 'contrat_' . $contract->id . '_' . str_replace(' ', '_', $contract->user->name ?? 'employe') . '.pdf';
+            $finalPath = 'contracts/' . $filename;
+            $finalFullPath = storage_path('app/' . $finalPath);
+            
+            // Si le contrat est un avenant, utiliser la méthode generate qui gère correctement les signatures
+            if ($contract->isAvenant()) {
+                // Appeler la méthode generate qui a déjà la logique complète de génération
+                $result = $this->generate(request(), $contract);
+                
+                // Vérifier si le fichier a été généré avec succès
+                if ($contract->final_document_path && Storage::exists($contract->final_document_path)) {
+                    $path = storage_path('app/' . $contract->final_document_path);
+                    $generatedFilename = basename($contract->final_document_path);
+                    
+                    \Log::info('Téléchargement du PDF généré', [
+                        'path' => $path,
+                        'exists' => file_exists($path)
+                    ]);
+                    
+                    return response()->download($path, $generatedFilename, [
+                        'Content-Type' => 'application/pdf',
+                        'Content-Disposition' => 'attachment; filename="' . $generatedFilename . '"'
+                    ]);
+                } else {
+                    throw new \Exception('Le fichier n\'a pas pu être généré correctement.');
+                }
+            }
+            
+            // Si c'est un contrat standard, générer un document basique
             $phpWord = new \PhpOffice\PhpWord\PhpWord();
             
             // Définir les styles de base
@@ -730,7 +848,7 @@ class ContractController extends Controller
             // Charger les données du contrat
             $contract->load(['user', 'data']);
             
-            // Générer le contenu du contrat (simplifié pour l'exemple)
+            // Générer le contenu du contrat
             $section->addText('CONTRAT DE TRAVAIL', ['bold' => true, 'size' => 16], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
             $section->addTextBreak(2);
             
@@ -748,22 +866,8 @@ class ContractController extends Controller
                 }
             }
             
-            // Générer un nom de fichier pour le document PDF
-            $filename = 'contrat_' . $contract->id . '_' . str_replace(' ', '_', $contract->user->name ?? 'employe') . '.pdf';
-            
-            // Créer les répertoires nécessaires
-            if (!file_exists(storage_path('app/temp'))) {
-                mkdir(storage_path('app/temp'), 0755, true);
-            }
-            
-            if (!file_exists(storage_path('app/contracts'))) {
-                mkdir(storage_path('app/contracts'), 0755, true);
-            }
-            
             $tempWordPath = storage_path('app/temp/temp_word_' . time() . '.docx');
             $pdfPath = storage_path('app/temp/' . $filename);
-            $finalPath = 'contracts/' . $filename;
-            $finalFullPath = storage_path('app/' . $finalPath);
             
             // Sauvegarder le document Word temporaire
             $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
@@ -790,14 +894,22 @@ class ContractController extends Controller
                 unlink($tempWordPath);
             }
             
+            // Vérifier que le fichier final existe
+            if (!file_exists($finalFullPath)) {
+                throw new \Exception("Le fichier PDF n'a pas été correctement généré: " . $finalFullPath);
+            }
+            
             // Retourner le PDF pour téléchargement
-            return response()->download($pdfPath, $filename, [
+            return response()->download($finalFullPath, $filename, [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'attachment; filename="' . $filename . '"'
-            ])->deleteFileAfterSend(true);
+            ]);
             
         } catch (\Exception $e) {
-            \Log::error('Erreur lors de la génération du contrat: ' . $e->getMessage());
+            \Log::error('Erreur lors de la génération du contrat: ' . $e->getMessage(), [
+                'contract_id' => $contract->id,
+                'trace' => $e->getTraceAsString()
+            ]);
             return redirect()->back()->with('error', 'Erreur lors du téléchargement du contrat: ' . $e->getMessage());
         }
     }
@@ -879,23 +991,38 @@ class ContractController extends Controller
             'new_hours' => 'required|numeric|min:0|max:40',
             'new_salary' => 'required|numeric|min:0',
             'new_hourly_rate' => 'required|numeric|min:0',
+            'motif' => 'nullable|string',
         ]);
         
         // Créer un nouvel avenant
         $avenant = new Contract([
             'user_id' => $contract->user_id,
             'admin_id' => auth()->id(),
-            'contract_template_id' => $contract->contract_template_id,
             'parent_contract_id' => $contract->id,
             'title' => 'Avenant n°' . $validated['avenant_number'] . ' au contrat de ' . $contract->user->name,
             'avenant_number' => $validated['avenant_number'],
             'contract_type' => 'avenant',
-            'status' => 'admin_signed', // L'avenant est directement signé par l'administrateur
+            'status' => 'admin_signed', // L'avenant est signé seulement par l'administrateur
             'admin_signature' => 'signatures/admin_signature.png',
             'admin_signed_at' => now(),
+            'employee_signature' => null, // Pas de signature employé
+            'employee_signed_at' => null, // Pas de date de signature employé
+            'completed_at' => null, // Pas de date de complétion
+            'is_avenant' => true,
+            'effective_date' => $validated['effective_date'],
+            'signing_date' => $validated['signing_date'],
+            'motif' => $validated['motif'] ?? 'Modification des conditions de travail',
+            'contract_template_id' => $contract->contract_template_id,
         ]);
         
         $avenant->save();
+        
+        \Log::info('Avenant créé avec signature administrateur', [
+            'avenant_id' => $avenant->id,
+            'parent_contract_id' => $contract->id,
+            'admin_signature' => $avenant->admin_signature,
+            'status' => $avenant->status
+        ]);
         
         // Créer les données de l'avenant
         $contractData = new ContractData([
@@ -933,7 +1060,7 @@ class ContractController extends Controller
         // Mettre à jour les champs calculés
         $this->calculateDerivedFields($contractData);
         
-        // Notifier l'employé
+        // Notifier l'employé qu'un avenant est disponible pour signature
         $contract->user->notify(new \App\Notifications\AvenantCreated($avenant));
         
         return redirect()->route('admin.contracts.show', $avenant)
@@ -941,64 +1068,231 @@ class ContractController extends Controller
     }
 
     /**
-     * Prévisualiser un avenant avant de le créer
+     * Prévisualise un avenant avant de le générer
      * 
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Contract  $contract
+     * @param Request $request
+     * @param Contract $contract
      * @return \Illuminate\Http\Response
      */
-    public function previewAvenant(Request $request, Contract $contract)
+    public function previewAvenant(Request $request)
     {
-        // Valider les données du formulaire
+        try {
+            // Pour la prévisualisation, récupérer ce qui est disponible sans validation stricte
+            $avenantNumber = $request->input('avenant_number', 1);
+            $effectiveDate = $request->input('effective_date', now()->format('Y-m-d'));
+            $signingDate = $request->input('signing_date', now()->format('Y-m-d'));
+            $newHours = $request->input('new_hours', 35);
+            $newSalary = $request->input('new_salary', 1000);
+            $newHourlyRate = $request->input('new_hourly_rate', 10);
+            $motif = $request->input('motif', 'Modification des conditions de travail');
+            
+            // Récupérer le contrat parent depuis la route ou le formulaire
+            $parentContractId = $request->route('contract')->id ?? $request->input('parent_contract_id');
+            $parentContract = Contract::with(['user', 'data'])->findOrFail($parentContractId);
+            
+            \Log::info('Prévisualisation d\'avenant', [
+                'parent_contract_id' => $parentContractId,
+                'avenant_number' => $avenantNumber,
+                'new_hours' => $newHours
+            ]);
+            
+            // Vérifier que le template de l'avenant existe
+            if (!view()->exists('pdf.avenant-template')) {
+                \Log::error('Le template d\'avenant n\'existe pas', [
+                    'template' => 'pdf.avenant-template',
+                    'path' => resource_path('views/pdf/avenant-template.blade.php')
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Le template d\'avenant n\'a pas été trouvé. Veuillez contacter l\'administrateur.'
+                ]);
+            }
+
+            // Créer un contrat temporaire pour la prévisualisation
+            $contract = new Contract();
+            $contract->user_id = $parentContract->user_id;
+            $contract->admin_id = Auth::id();
+            $contract->status = 'preview';
+            $contract->contract_type = 'avenant';
+            $contract->avenant_number = $avenantNumber;
+            $contract->parent_contract_id = $parentContractId;
+            $contract->user = $parentContract->user;
+            $contract->parentContract = $parentContract;
+            
+            // Créer les données du contrat temporaire
+            $contractData = new ContractData();
+            $contractData->work_hours = $newHours;
+            $contractData->monthly_gross_salary = $newSalary;
+            $contractData->hourly_rate = $newHourlyRate;
+            $contractData->effective_date = $effectiveDate;
+            $contractData->contract_signing_date = $signingDate;
+            $contractData->motif = $motif;
+            
+            // Associer les données au contrat
+            $contract->data = $contractData;
+            
+            // Récupérer les informations de l'entreprise
+            $company = CompanyInfo::first();
+            $contract->company = $company;
+            
+            // Préparer les signatures
+            $signatureHelper = new SignatureHelper();
+            
+            // Signature de l'administrateur (utilisateur connecté)
+            $adminId = Auth::id();
+            $contract->adminSignatureBase64 = $signatureHelper->prepareSignatureForPdf('admin', $adminId);
+            
+            // Signature de l'employé (du contrat parent)
+            $employeeId = $parentContract->user_id;
+            $contract->employeeSignatureBase64 = $signatureHelper->prepareSignatureForPdf('employee', $employeeId, $parentContract->id);
+            
+            // Générer le PDF en mode prévisualisation et en spécifiant qu'il s'agit d'un avenant
+            $pdfPath = app(PdfController::class)->generateContractPdf($contract, true, true);
+            
+            if ($pdfPath && file_exists($pdfPath)) {
+                // Au lieu de renvoyer un JSON, renvoyer directement le PDF
+                return response()->file($pdfPath, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="' . basename($pdfPath) . '"'
+                ]);
+            } else {
+                Log::error('Échec de génération de la prévisualisation de l\'avenant', [
+                    'parent_contract_id' => $parentContractId,
+                    'user_id' => $parentContract->user_id
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Impossible de générer la prévisualisation. Veuillez réessayer.'
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la prévisualisation de l\'avenant', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Une erreur est survenue: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Affiche le formulaire pour créer un nouveau contrat
+     */
+    public function create()
+    {
+        // Récupérer tous les employés (utilisateurs qui ne sont pas administrateurs)
+        $employees = User::where('is_admin', false)
+            ->where('archived', false)
+            ->get();
+        
+        return view('admin.contracts.create', compact('employees'));
+    }
+
+    /**
+     * Traite la création d'un nouveau contrat
+     */
+    public function store(Request $request)
+    {
         $validated = $request->validate([
-            'avenant_number' => 'required|integer',
-            'effective_date' => 'required|date',
-            'signing_date' => 'required|date',
-            'new_hours' => 'nullable|numeric',
-            'new_salary' => 'nullable|numeric',
-            'new_hourly_rate' => 'nullable|numeric',
+            'user_id' => 'required|exists:users,id',
+            'contract_type' => 'required|in:cdi,avenant',
         ]);
         
-        // Créer un contrat temporaire pour la prévisualisation
-        $avenantData = $contract->data->toArray();
+        $user = User::findOrFail($validated['user_id']);
         
-        // Mettre à jour les données avec les nouvelles valeurs d'avenant
-        if (!empty($validated['new_hours'])) {
-            $avenantData['weekly_hours'] = $validated['new_hours'];
+        if ($validated['contract_type'] === 'cdi') {
+            // Créer un nouveau contrat CDI
+            $contract = new Contract([
+                'user_id' => $user->id,
+                'admin_id' => auth()->id(),
+                'title' => 'Contrat CDI pour ' . $user->name,
+                'contract_type' => 'cdi',
+                'status' => 'draft',
+                'is_avenant' => false
+            ]);
+            
+            $contract->save();
+            
+            return redirect()->route('admin.contracts.edit', $contract)
+                ->with('success', 'Contrat CDI créé avec succès. Veuillez compléter les informations.');
+        } 
+        else if ($validated['contract_type'] === 'avenant') {
+            // Trouver le dernier contrat complété
+            $parentContract = $user->contracts()
+                ->where('is_avenant', false)
+                ->where('status', 'completed')
+                ->latest()
+                ->first();
+                
+            if (!$parentContract) {
+                return redirect()->route('admin.contracts.create')
+                    ->with('error', 'Aucun contrat principal trouvé pour cet employé.');
+            }
+            
+            // Rediriger vers le formulaire de création d'avenant
+            return redirect()->route('admin.contracts.create-avenant', $parentContract)
+                ->with('success', 'Veuillez compléter les informations de l\'avenant.');
         }
         
-        if (!empty($validated['new_salary'])) {
-            $avenantData['monthly_salary'] = $validated['new_salary'];
+        return redirect()->route('admin.contracts.index')
+            ->with('error', 'Type de contrat non valide.');
+    }
+
+    /**
+     * Synchronise et corrige les problèmes de photos d'employés
+     */
+    public function fixPhotos()
+    {
+        try {
+            // S'assurer que le répertoire des photos existe
+            $photoDir = storage_path('app/public/employee_photos');
+            if (!file_exists($photoDir)) {
+                mkdir($photoDir, 0755, true);
+                \Log::info('Répertoire employee_photos créé: ' . $photoDir);
+            }
+            
+            // S'assurer que le lien symbolique existe
+            if (!file_exists(public_path('storage'))) {
+                \Artisan::call('storage:link');
+                \Log::info('Lien symbolique storage:link créé');
+            }
+            
+            // Récupérer toutes les données de contrat avec des photos
+            $contractsWithPhotos = ContractData::whereNotNull('photo_path')->get();
+            $count = 0;
+            $errors = 0;
+            
+            foreach ($contractsWithPhotos as $data) {
+                // Vérifier si le fichier existe
+                $photoPath = storage_path('app/public/' . $data->photo_path);
+                if (!file_exists($photoPath)) {
+                    \Log::warning('Photo manquante: ' . $photoPath);
+                    $errors++;
+                    continue;
+                }
+                
+                // Mettre à jour le profil utilisateur associé
+                $contract = Contract::find($data->contract_id);
+                if ($contract && $contract->user) {
+                    $contract->user->update([
+                        'profile_photo_path' => $data->photo_path
+                    ]);
+                    $count++;
+                    \Log::info('Photo de profil synchronisée: ' . $data->photo_path . ' pour l\'utilisateur #' . $contract->user_id);
+                }
+            }
+            
+            return redirect()->route('admin.contracts.index')
+                ->with('success', 'Synchronisation des photos terminée: ' . $count . ' photos mises à jour, ' . $errors . ' erreurs.');
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors de la correction des photos: ' . $e->getMessage());
+            return redirect()->route('admin.contracts.index')
+                ->with('error', 'Une erreur est survenue: ' . $e->getMessage());
         }
-        
-        if (!empty($validated['new_hourly_rate'])) {
-            $avenantData['hourly_rate'] = $validated['new_hourly_rate'];
-        }
-        
-        // Générer le PDF de prévisualisation
-        $pdfController = new \App\Http\Controllers\PdfController();
-        $tempContract = new Contract();
-        $tempContract->id = 'preview_' . $contract->id . '_' . time();
-        $tempContract->is_avenant = true;
-        $tempContract->avenant_number = $validated['avenant_number'];
-        $tempContract->parent_contract_id = $contract->id;
-        $tempContract->user_id = $contract->user_id;
-        $tempContract->effective_date = $validated['effective_date'];
-        $tempContract->signing_date = $validated['signing_date'];
-        
-        // Associer les données temporairement
-        $tempData = new \App\Models\ContractData();
-        foreach ($avenantData as $key => $value) {
-            $tempData->$key = $value;
-        }
-        $tempContract->setRelation('data', $tempData);
-        $tempContract->setRelation('user', $contract->user);
-        $tempContract->setRelation('parentContract', $contract);
-        
-        // Générer le PDF
-        $pdfPath = $pdfController->generateContractPdf($tempContract, true);
-        
-        // Retourner le PDF comme réponse
-        return response()->file(storage_path('app/' . $pdfPath));
     }
 }

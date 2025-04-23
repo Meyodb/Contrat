@@ -5,15 +5,16 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use App\Models\User;
 
 class PhotoController extends Controller
 {
     /**
-     * Affiche une photo d'employé
+     * Affiche une photo de profil
      */
-    public function showEmployeePhoto($filename)
+    public function showProfilePhoto($filename)
     {
-        $path = 'public/employee_photos/' . $filename;
+        $path = 'public/profile-photos/' . $filename;
         
         // Vérifier si le fichier existe
         if (!Storage::exists($path)) {

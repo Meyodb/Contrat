@@ -42,6 +42,10 @@ class ContractData extends Model
         'trial_period_months',
         'overtime_hours_20',
         
+        // Informations spécifiques aux avenants
+        'effective_date',
+        'original_contract_date',
+        
         // Champs calculés
         'monthly_hours',
         'weekly_hours',
@@ -68,6 +72,8 @@ class ContractData extends Model
         'contract_start_date' => 'date',
         'contract_signing_date' => 'date',
         'trial_period_end_date' => 'date',
+        'effective_date' => 'date',
+        'original_contract_date' => 'date',
         'work_hours' => 'decimal:2',
         'hourly_rate' => 'decimal:2',
         'monthly_hours' => 'decimal:2',
@@ -96,7 +102,7 @@ class ContractData extends Model
         static::saving(function ($contractData) {
             // Calculer le nombre d'heures mensuelles
             if ($contractData->work_hours) {
-                $contractData->monthly_hours = (float)$contractData->work_hours * 4.33;
+                $contractData->monthly_hours = (float)$contractData->work_hours / 5 * 21.6;
                 $contractData->weekly_hours = (float)$contractData->work_hours;
             }
             
@@ -118,5 +124,28 @@ class ContractData extends Model
                 $contractData->weekly_overtime = (float)$contractData->monthly_overtime / 4.33;
             }
         });
+    }
+
+    /**
+     * Calcule les champs dérivés à partir des données de base
+     */
+    public static function calculateFields($contractData)
+    {
+        // Calculer le nombre d'heures mensuelles
+        if (!empty($contractData->work_hours)) {
+            $contractData->monthly_hours = (float)$contractData->work_hours / 5 * 21.6;
+        }
+        
+        // Calculer le salaire mensuel
+        if ($contractData->hourly_rate && $contractData->monthly_hours) {
+            $contractData->monthly_gross_salary = (float)$contractData->hourly_rate * (float)$contractData->monthly_hours;
+        }
+        
+        // Calculer les heures supplémentaires
+        if (!empty($contractData->monthly_hours)) {
+            $contractData->monthly_overtime = (float)$contractData->monthly_hours * 0.2;
+            $weeklyHours = (float)$contractData->work_hours;
+            $contractData->weekly_overtime = (float)$weeklyHours * 0.2;
+        }
     }
 }

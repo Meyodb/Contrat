@@ -59,6 +59,22 @@
                         </div>
 
                         <div class="row mb-2">
+                            <!-- Confirmation d'email sur toute la largeur -->
+                            <div class="col-12">
+                                <label for="email_confirmation" class="form-label small">{{ __('Confirmer l\'email') }}</label>
+                                <div class="input-group input-group-sm has-validation">
+                                    <span class="input-group-text py-0"><i class="bi bi-envelope-check"></i></span>
+                                    <input id="email_confirmation" type="email" class="form-control form-control-sm @error('email_confirmation') is-invalid @enderror" name="email_confirmation" value="{{ old('email_confirmation') }}" required autocomplete="email" style="height: 31px; padding: 0.25rem 0.5rem;">
+                                </div>
+                                @error('email_confirmation')
+                                    <span class="invalid-feedback d-block small" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="row mb-2">
                             <!-- Mot de passe et confirmation sur la même ligne -->
                             <div class="col-6">
                                 <label for="password" class="form-label small">{{ __('Mot de passe') }}</label>

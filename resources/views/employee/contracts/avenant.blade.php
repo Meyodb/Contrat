@@ -165,7 +165,7 @@
                                                 @php
                                                     $adminSignatureFilename = basename($avenant->admin_signature);
                                                 @endphp
-                                                <img src="{{ route('signature', ['filename' => $adminSignatureFilename]) }}" 
+                                                <img src="{{ route('signature.admin', ['filename' => 'admin_signature.png']) }}" 
                                                      alt="Signature de l'administrateur" 
                                                      class="img-fluid" 
                                                      style="max-height: 100px;">

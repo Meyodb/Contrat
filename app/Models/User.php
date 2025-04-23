@@ -27,6 +27,7 @@ class User extends Authenticatable
         'signature_image',
         'archived',
         'archived_at',
+        'profile_photo_path',
     ];
 
     /**

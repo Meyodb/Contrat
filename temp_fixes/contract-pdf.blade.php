@@ -135,9 +135,9 @@
                         <p>&nbsp;</p>
                         <div style="text-align: center;">
                         @if(!empty($adminSignatureBase64))
-                            <img src="data:image/png;base64,{{ $adminSignatureBase64 }}" alt="Signature de l'employeur" style="max-height: 100px; margin: 0 auto;">
+                            <img src="data:image/png;base64,{{ $adminSignatureBase64 }}" alt="Signature de l'employeur" style="max-height: 70px; margin: 0 auto;">
                         @else
-                            <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block; text-align:center; margin: 0 auto;">
+                            <div style="width:150px; height:70px; border-bottom: 1px solid #000; display:inline-block; text-align:center; margin: 0 auto;">
                                 Signature de l'employeur
                             </div>
                         @endif
@@ -150,9 +150,9 @@
                         <p>&nbsp;</p>
                         <div style="text-align: center;">
                         @if(!empty($employeeSignatureBase64))
-                            <img src="data:image/png;base64,{{ $employeeSignatureBase64 }}" alt="Signature de l'employé" style="max-height: 100px; margin: 0 auto;">
+                            <img src="data:image/png;base64,{{ $employeeSignatureBase64 }}" alt="Signature de l'employé" style="max-height: 70px; margin: 0 auto;">
                         @else
-                            <div style="width:200px; height:100px; border-bottom: 1px solid #000; display:inline-block; text-align:center; margin: 0 auto;">
+                            <div style="width:150px; height:70px; border-bottom: 1px solid #000; display:inline-block; text-align:center; margin: 0 auto;">
                                 Signature de l'employé
                             </div>
                         @endif
@@ -176,9 +176,9 @@
         <div style="margin-top:60px;">
             <p><strong>Signature :</strong></p>
             @if(!empty($employeeSignatureBase64))
-                <img src="data:image/png;base64,{{ $employeeSignatureBase64 }}" alt="Signature de l'employé" style="max-height: 100px; margin-top: 20px;">
+                <img src="data:image/png;base64,{{ $employeeSignatureBase64 }}" alt="Signature de l'employé" style="max-height: 70px; margin-top: 20px;">
             @else
-                <div style="width:200px; height:100px; border-bottom: 1px solid #000; margin-top: 20px;">
+                <div style="width:150px; height:70px; border-bottom: 1px solid #000; margin-top: 20px;">
                 </div>
             @endif
         </div>

@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\ContractTemplate;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Storage;
 
 class ContractTemplateSeeder extends Seeder
 {
@@ -12,10 +13,18 @@ class ContractTemplateSeeder extends Seeder
      */
     public function run(): void
     {
-        ContractTemplate::create([
-            'name' => 'CDI Whatever',
-            'description' => 'Modèle de contrat à durée indéterminée',
-            'file_path' => 'templates/CDI Whatever.docx',
-        ]);
+        // Créer un modèle CDI s'il n'existe pas
+        if (!ContractTemplate::where('name', 'CDI')->exists()) {
+            ContractTemplate::create([
+                'name' => 'CDI',
+                'description' => 'Contrat à durée indéterminée',
+                'file_path' => 'templates/cdi.docx',
+                'is_active' => true,
+            ]);
+            
+            $this->command->info('Modèle de contrat CDI créé avec succès.');
+        } else {
+            $this->command->info('Le modèle de contrat CDI existe déjà.');
+        }
     }
 } 

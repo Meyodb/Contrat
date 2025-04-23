@@ -50,7 +50,7 @@
                             <div class="col-md-6">
                                 <p><strong>Référence:</strong> {{ $contract->title }}</p>
                                 <p><strong>Type de contrat:</strong> {{ $contract->template->name ?? 'Non spécifié' }}</p>
-                                <p><strong>Employé:</strong> {{ $contract->user->name }}</p>
+                                <p><strong>Employé:</strong> {{ $contract->user ? $contract->user->name : 'Utilisateur supprimé' }}</p>
                             </div>
                             <div class="col-md-6">
                                 <p><strong>Créé le:</strong> {{ $contract->created_at ? $contract->created_at->format('d/m/Y') : 'Non spécifié' }}</p>
@@ -125,14 +125,30 @@
                         </div>
                     </div>
                     
-                    @if($contract->data && $contract->data->photo_path)
+                    @if($contract->user && $contract->user->profile_photo_path)
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Photo d'identité</label>
-                        <div>
+                        <label class="form-label fw-bold">Photo de profil</label>
+                        <div class="text-center">
                             @php
-                                $photoFilename = basename($contract->data->photo_path);
+                                $photoPath = $contract->user->profile_photo_path;
+                                // Vérifier si le chemin commence par 'photos/'
+                                if (strpos($photoPath, 'photos/') === 0) {
+                                    $photoUrl = asset($photoPath);
+                                } else {
+                                    $photoUrl = Storage::url($photoPath);
+                                }
                             @endphp
-                            <img src="{{ route('employee.photo', ['filename' => $photoFilename]) }}" alt="Photo d'identité" class="img-thumbnail" style="max-height: 200px;">
+                            <img src="{{ $photoUrl }}" alt="Photo de profil" class="img-thumbnail rounded-circle" style="width: 180px; height: 180px; object-fit: cover;"
+                                onerror="this.onerror=null; this.src='{{ asset('img/default-profile.png') }}'; console.error('Image non trouvée: {{ $photoUrl }}');">
+                        </div>
+                    </div>
+                    @else
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Photo de profil</label>
+                        <div class="text-center">
+                            <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 180px; height: 180px; font-size: 4rem; margin: 0 auto;">
+                                {{ strtoupper(substr($contract->user ? $contract->user->name : 'U', 0, 1)) }}
+                            </div>
                         </div>
                     </div>
                     @endif
@@ -150,9 +166,9 @@
                                         <p class="fw-bold text-center">M BRIAND Grégory</p>
                                     </div>
                                     <div class="signature-container text-center" style="height: 150px; width: 100%; display: flex; align-items: center; justify-content: center;">
-                                        @if($contract->admin_signed_at && $contract->admin_signature)
+                                        @if($contract->admin_signed_at && ($contract->admin_signature || $contract->status === 'completed'))
                                             @php
-                                                $adminSignatureFilename = basename($contract->admin_signature);
+                                                $adminSignatureFilename = basename($contract->admin_signature ?? 'admin_signature.png');
                                                 $adminSignaturePath = 'signatures/' . $adminSignatureFilename;
                                                 \Log::info('Affichage signature admin', [
                                                     'filename' => $adminSignatureFilename,
@@ -160,7 +176,7 @@
                                                     'exists' => \Storage::exists('public/' . $adminSignaturePath)
                                                 ]);
                                             @endphp
-                                            <img src="{{ route('signature', ['filename' => 'admin_signature.png']) }}" 
+                                            <img src="{{ route('signature.admin', ['filename' => 'admin_signature.png']) }}" 
                                                  alt="Signature de l'employeur" 
                                                  class="img-fluid" 
                                                  style="max-height: 150px;">
@@ -210,27 +226,25 @@
                             <i class="bi bi-arrow-left"></i> Retour à la liste
                         </a>
                         <div>
-                            @if($contract->status === 'completed' || $contract->status === 'employee_signed')
-                                <a href="{{ route('admin.contracts.create-avenant', $contract) }}" class="btn btn-primary me-2">
-                                    <i class="bi bi-file-earmark-plus"></i> Créer un avenant
-                                </a>
-                            @endif
-                            
                             @if($contract->status === 'submitted')
                                 <a href="{{ route('admin.contracts.edit', $contract) }}" class="btn btn-primary me-2">
                                     <i class="bi bi-pencil"></i> Modifier
                                 </a>
-                                <a href="{{ route('admin.contracts.sign.form', $contract) }}" class="btn btn-success me-2">
-                                    <i class="bi bi-pen"></i> Signer
+                                <a href="{{ route('admin.contracts.sign', $contract) }}" class="btn btn-success me-2" onclick="return confirm('Voulez-vous signer ce contrat avec la signature administrative enregistrée?');">
+                                    <i class="bi bi-pen"></i> Signer automatiquement
                                 </a>
                                 <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
                                     <i class="bi bi-x-circle"></i> Rejeter
                                 </button>
                             @endif
                             
-                            <a href="{{ route('admin.contracts.preview', $contract) }}" class="btn btn-secondary" target="_blank">
+                            <a href="{{ route('admin.contracts.preview', $contract) }}" class="btn btn-secondary me-2" target="_blank">
                                 <i class="bi bi-eye"></i> Prévisualiser
                             </a>
+                            
+                            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                                <i class="bi bi-trash"></i> Supprimer
+                            </button>
                         </div>
                     </div>
                     
@@ -308,6 +322,32 @@
                     <button type="submit" class="btn btn-danger">Supprimer définitivement</button>
                 </form>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de rejet -->
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rejectModalLabel">Rejeter le contrat</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('admin.contracts.reject', $contract) }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="admin_notes" class="form-label">Motif du rejet</label>
+                        <textarea class="form-control" id="admin_notes" name="admin_notes" rows="4" required placeholder="Veuillez expliquer la raison du rejet..."></textarea>
+                        <div class="form-text">Ces informations seront communiquées à l'employé.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-danger">Rejeter le contrat</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

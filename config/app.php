@@ -1,7 +1,27 @@
 <?php
 
-return [
+use Illuminate\Support\Facades\Facade;
 
+$providers = [
+    /*
+    |--------------------------------------------------------------------------
+    | Application Providers
+    |--------------------------------------------------------------------------
+    |
+    | The providers listed here will be automatically loaded on the request
+    | to your application. Add your own providers here.
+    |
+    */
+    App\Providers\AppServiceProvider::class,
+    // App\Providers\AuthServiceProvider::class,
+    // App\Providers\BroadcastServiceProvider::class,
+    // App\Providers\EventServiceProvider::class,
+    // App\Providers\RouteServiceProvider::class,
+    Spatie\Permission\PermissionServiceProvider::class,
+    Barryvdh\DomPDF\ServiceProvider::class,
+];
+
+$app = [
     /*
     |--------------------------------------------------------------------------
     | Application Name
@@ -78,11 +98,11 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    'locale' => env('APP_LOCALE', 'fr'),
 
-    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
+    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'fr'),
 
-    'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
+    'faker_locale' => env('APP_FAKER_LOCALE', 'fr_FR'),
 
     /*
     |--------------------------------------------------------------------------
@@ -122,16 +142,51 @@ return [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
-
-    // Package Service Providers...
+    
     /*
-     * Package Service Providers...
-     */
-    Spatie\Permission\PermissionServiceProvider::class,
-    Barryvdh\DomPDF\ServiceProvider::class,
-
+    |--------------------------------------------------------------------------
+    | Autoloaded Service Providers
+    |--------------------------------------------------------------------------
+    |
+    | The service providers listed here will be automatically loaded on the
+    | request to your application. Add your own service providers here.
+    |
+    */
+    
+    'providers' => $providers,
+    
     /*
-     * Application Service Providers...
-     */
-
+    |--------------------------------------------------------------------------
+    | Class Aliases
+    |--------------------------------------------------------------------------
+    |
+    | Laravel 12 a supprimé la façade automatique, nous avons besoin de spécifier les alias
+    | importants manuellement.
+    |
+    */
+    'aliases' => [
+        'PDF' => Barryvdh\DomPDF\Facade\Pdf::class,
+        'Storage' => Illuminate\Support\Facades\Storage::class,
+        'File' => Illuminate\Support\Facades\File::class,
+        'Auth' => Illuminate\Support\Facades\Auth::class,
+        'Crypt' => Illuminate\Support\Facades\Crypt::class,
+        'Cookie' => Illuminate\Support\Facades\Cookie::class,
+        'Session' => Illuminate\Support\Facades\Session::class,
+        'Request' => Illuminate\Support\Facades\Request::class,
+        'Response' => Illuminate\Support\Facades\Response::class,
+        'Route' => Illuminate\Support\Facades\Route::class,
+        'Redirect' => Illuminate\Support\Facades\Redirect::class,
+        'DB' => Illuminate\Support\Facades\DB::class,
+        'Schema' => Illuminate\Support\Facades\Schema::class,
+        'Hash' => Illuminate\Support\Facades\Hash::class,
+        'Validator' => Illuminate\Support\Facades\Validator::class,
+        'Log' => Illuminate\Support\Facades\Log::class,
+    ],
 ];
+
+// Ajout des alias manuels pour Laravel 12
+if (!class_exists('PDF')) {
+    class_alias(\Barryvdh\DomPDF\Facade\Pdf::class, 'PDF');
+}
+
+return $app;

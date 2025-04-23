@@ -11,9 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('contracts', function (Blueprint $table) {
-            $table->foreignId('admin_id')->after('user_id')->nullable()->constrained('users');
-        });
+        // Cette migration n'a plus besoin d'exécuter quoi que ce soit
+        // Le champ admin_id est déjà dans la table contracts
     }
 
     /**
@@ -21,9 +20,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('contracts', function (Blueprint $table) {
-            $table->dropForeign(['admin_id']);
-            $table->dropColumn('admin_id');
-        });
+        // Rien à faire
     }
 };

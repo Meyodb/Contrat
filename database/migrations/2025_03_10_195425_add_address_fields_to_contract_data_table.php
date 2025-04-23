@@ -11,10 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('contract_data', function (Blueprint $table) {
-            $table->string('postal_code')->nullable()->after('address');
-            $table->string('city')->nullable()->after('postal_code');
-        });
+        // Cette migration n'a plus besoin d'exécuter quoi que ce soit
+        // Les champs d'adresse sont déjà dans la table contract_data
     }
 
     /**
@@ -22,9 +20,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('contract_data', function (Blueprint $table) {
-            $table->dropColumn('postal_code');
-            $table->dropColumn('city');
-        });
+        // Rien à faire
     }
 };

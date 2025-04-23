@@ -32,6 +32,11 @@ class Contract extends Model
         'employee_signed_at',
         'completed_at',
         'generated_at',
+        'effective_date',
+        'signing_date',
+        'motif',
+        'is_avenant',
+        'template_id',
     ];
 
     /**
@@ -44,6 +49,10 @@ class Contract extends Model
         'admin_signed_at' => 'datetime',
         'employee_signed_at' => 'datetime',
         'completed_at' => 'datetime',
+        'generated_at' => 'datetime',
+        'effective_date' => 'date',
+        'signing_date' => 'date',
+        'is_avenant' => 'boolean',
     ];
 
     /**

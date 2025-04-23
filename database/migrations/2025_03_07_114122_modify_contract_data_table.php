@@ -11,13 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('contract_data', function (Blueprint $table) {
-            // Ajouter les nouvelles colonnes
-            $table->string('full_name')->nullable();
-            $table->date('birth_date')->nullable();
-            $table->string('address')->nullable();
-            $table->string('phone')->nullable();
-        });
+        // Cette migration n'a plus besoin d'exécuter quoi que ce soit, car les colonnes ont été créées dans create_all_tables
+        // Nous la gardons pour la compatibilité avec l'historique de migration
     }
 
     /**
@@ -25,9 +20,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('contract_data', function (Blueprint $table) {
-            // Supprimer les nouvelles colonnes
-            $table->dropColumn(['full_name', 'birth_date', 'address', 'phone']);
-        });
+        // Rien à faire
     }
 };

@@ -11,16 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('contracts', function (Blueprint $table) {
-            $table->foreignId('parent_contract_id')
-                  ->nullable()
-                  ->after('contract_template_id')
-                  ->constrained('contracts')
-                  ->onDelete('set null');
-            
-            $table->string('avenant_number')->nullable()->after('title');
-            $table->string('contract_type')->default('contract')->after('avenant_number');
-        });
+        // Cette migration n'a plus besoin d'exécuter quoi que ce soit
+        // Les champs pour la gestion des avenants sont déjà dans la table contracts
     }
 
     /**
@@ -28,11 +20,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('contracts', function (Blueprint $table) {
-            $table->dropForeign(['parent_contract_id']);
-            $table->dropColumn('parent_contract_id');
-            $table->dropColumn('avenant_number');
-            $table->dropColumn('contract_type');
-        });
+        // Rien à faire
     }
 }; 

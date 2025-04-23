@@ -11,9 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('contracts', function (Blueprint $table) {
-            $table->timestamp('generated_at')->nullable()->after('completed_at');
-        });
+        // Cette migration n'a plus besoin d'exécuter quoi que ce soit
+        // Le champ generated_at est déjà dans la table contracts
     }
 
     /**
@@ -21,8 +20,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('contracts', function (Blueprint $table) {
-            $table->dropColumn('generated_at');
-        });
+        // Rien à faire
     }
 };

@@ -3,291 +3,273 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\File;
+use App\Models\User;
+use App\Temp_Fixes\SignatureHelper;
 
 class SignatureController extends Controller
 {
     /**
-     * Affiche une signature à partir de son nom de fichier
+     * SignatureHelper instance
+     */
+    protected $signatureHelper;
+    
+    /**
+     * Chemins de signatures par type d'utilisateur
+     */
+    protected $signaturePaths = [
+        'admin' => 'signatures/admin/admin_signature.png',
+        'employee' => 'signatures/employees/{id}.png'
+    ];
+    
+    /**
+     * Constructeur
+     */
+    public function __construct()
+    {
+        $this->signatureHelper = new SignatureHelper();
+    }
+    
+    /**
+     * Afficher la page des signatures
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index()
+    {
+        // Récupérer tous les utilisateurs
+        $users = User::orderBy('lastname')->get();
+        
+        // Vérifier les signatures existantes
+        $signatures = [];
+        foreach ($users as $user) {
+            // Déterminer le chemin de signature en fonction du rôle
+            $signaturePath = str_replace('{id}', $user->id, $this->signaturePaths['employee']);
+            
+            // Vérifier si la signature existe
+            $signatures[$user->id] = [
+                'exists' => Storage::exists('public/' . $signaturePath),
+                'path' => $signaturePath,
+                'timestamp' => Storage::exists('public/' . $signaturePath) 
+                    ? filemtime(storage_path('app/public/' . $signaturePath)) 
+                    : null
+            ];
+        }
+        
+        // Renvoyer la vue avec les données
+        return view('signatures.index', [
+            'users' => $users,
+            'signatures' => $signatures
+        ]);
+    }
+    
+    /**
+     * Enregistrer une signature
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request)
+    {
+        try {
+            // Valider les données
+            $validatedData = $request->validate([
+                'signature' => 'required|string',
+                'user_id' => 'required|integer|exists:users,id',
+            ]);
+            
+            // Déterminer le type de signature (admin ou employee)
+            $user = User::findOrFail($validatedData['user_id']);
+            $signatureType = $user->hasRole('admin') ? 'admin' : 'employee';
+            
+            // Utiliser SignatureHelper pour sauvegarder la signature
+            $result = $this->signatureHelper->saveSignature(
+                $validatedData['signature'],
+                $signatureType,
+                $validatedData['user_id']
+            );
+            
+            // Vérifier le résultat
+            if (!$result) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Échec de la sauvegarde de la signature'
+                ], 500);
+            }
+            
+            // Journaliser le succès
+            Log::info('Signature enregistrée avec succès', [
+                'user_id' => $validatedData['user_id'],
+                'path' => $result,
+                'by_user' => Auth::id()
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Signature enregistrée avec succès',
+                'path' => $result
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de l\'enregistrement de la signature', [
+                'error' => $e->getMessage(),
+                'user_id' => $request->input('user_id', 'N/A')
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Une erreur s\'est produite lors de l\'enregistrement de la signature: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Convertir les signatures existantes vers le nouveau format
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function convertSignatures()
+    {
+        try {
+            // Vérifier les permissions
+            if (!Auth::user()->hasRole('admin')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vous n\'avez pas les permissions nécessaires pour cette action'
+                ], 403);
+            }
+            
+            // Utiliser la méthode de migration du SignatureHelper
+            $stats = $this->signatureHelper->migrateSignatures();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Conversion des signatures terminée',
+                'stats' => $stats
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la conversion des signatures', [
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Une erreur s\'est produite lors de la conversion des signatures: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Corriger les permissions des fichiers de signature
      * 
-     * @param string $filename Nom du fichier de signature
+     * @return \Illuminate\Http\Response
+     */
+    public function fixSignaturePermissions()
+    {
+        try {
+            // Utiliser la méthode du SignatureHelper
+            $stats = $this->signatureHelper->fixSignaturePermissions();
+            
+            // Log les résultats
+            Log::info('Correction des permissions de signatures terminée', [
+                'stats' => $stats
+            ]);
+            
+            // Rediriger avec un message de succès
+            return back()->with('success', 'Les permissions des signatures ont été corrigées avec succès. ' . 
+                $stats['files_fixed'] . ' fichiers et ' . $stats['directories_fixed'] . ' répertoires ont été traités.');
+                
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la correction des permissions de signatures', [
+                'error' => $e->getMessage()
+            ]);
+            
+            return back()->with('error', 'Une erreur s\'est produite: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Afficher une signature d'après son nom de fichier
+     *
+     * @param string $filename Le nom du fichier de la signature
      * @return \Illuminate\Http\Response
      */
     public function showSignature($filename)
     {
-        // Logger l'accès pour faciliter le débogage
-        \Log::info('Demande d\'accès à une signature', [
-            'filename' => $filename,
-            'url' => request()->fullUrl()
-        ]);
-        
-        // Chemins possibles pour les signatures (par ordre de priorité)
-        $paths = [
-            'public/signatures/' . $filename,
-            'private/signatures/' . $filename,
-            'signatures/' . $filename
-        ];
-        
-        // Si le nom du fichier suit le format 'XX_employee.png', on vérifie aussi les chemins avec l'ID
-        if (preg_match('/^(\d+)_employee\.png$/', $filename, $matches)) {
-            $userId = $matches[1];
+        try {
+            Log::info('Demande d\'affichage de signature', ['filename' => $filename, 'route' => request()->route()->getName()]);
             
-            // Logger les tentatives d'accès pour déboguer
-            \Log::info('Signature employé demandée', [
-                'filename' => $filename,
-                'userId' => $userId
-            ]);
-        }
-        
-        // Cas spécial pour la signature admin
-        if ($filename === 'admin_signature.png') {
-            \Log::info('Signature admin demandée');
+            // Déterminer le chemin du fichier selon le type de signature et la route utilisée
+            $filePath = '';
+            $routeName = request()->route()->getName();
             
-            // Si la signature n'existe pas, la créer
-            if (!Storage::exists('public/signatures/admin_signature.png')) {
-                \Log::info('Création de la signature admin car non trouvée');
-                $this->createAdminSignature();
-            }
-        }
-        
-        // Chercher la signature dans les différents chemins
-        foreach ($paths as $path) {
-            if (Storage::exists($path)) {
-                \Log::info('Signature trouvée', ['path' => $path]);
-                try {
-                    $file = Storage::get($path);
-                    $type = File::mimeType(storage_path('app/' . $path));
+            // Route spécifique admin
+            if ($routeName === 'signature.admin' || $filename === 'admin_signature.png') {
+                // Tester d'abord le chemin standard
+                $filePath = 'public/' . $this->signaturePaths['admin'];
+                
+                // Si le fichier n'existe pas, essayer d'autres emplacements possibles
+                if (!Storage::exists($filePath)) {
+                    Log::warning('Signature admin non trouvée au chemin standard', ['path' => $filePath]);
                     
-                    return response($file, 200)->header('Content-Type', $type);
-                } catch (\Exception $e) {
-                    \Log::error('Erreur lors de l\'accès à la signature: ' . $e->getMessage(), [
-                        'path' => $path,
-                        'filename' => $filename
-                    ]);
-                    continue;
-                }
-            }
-        }
-        
-        \Log::warning('Signature non trouvée dans les chemins standards', [
-            'filename' => $filename,
-            'paths_checked' => $paths
-        ]);
-        
-        // Si aucune signature n'est trouvée, essayer de copier depuis un autre emplacement
-        $success = $this->tryToCopySignature($filename);
-        
-        if ($success) {
-            \Log::info('Signature copiée avec succès, nouvelle tentative d\'accès');
-            
-            // Vérifier à nouveau après la tentative de copie
-            foreach ($paths as $path) {
-                if (Storage::exists($path)) {
-                    try {
-                        $file = Storage::get($path);
-                        $type = File::mimeType(storage_path('app/' . $path));
-                        
-                        return response($file, 200)->header('Content-Type', $type);
-                    } catch (\Exception $e) {
-                        \Log::error('Erreur après copie: ' . $e->getMessage(), [
-                            'path' => $path,
-                            'filename' => $filename
-                        ]);
-                        continue;
+                    // Essayer dans le dossier signatures (racine)
+                    $alternativePath = 'public/signatures/admin_signature.png';
+                    if (Storage::exists($alternativePath)) {
+                        $filePath = $alternativePath;
+                        Log::info('Signature admin trouvée au chemin alternatif', ['path' => $filePath]);
                     }
                 }
+            } 
+            // Route spécifique employé
+            else if ($routeName === 'signature.employee') {
+                // Chercher dans le dossier des signatures d'employés
+                $filePath = 'public/signatures/employees/' . $filename;
             }
-        }
-        
-        // Si c'est une signature admin, essayer de la créer
-        if ($filename === 'admin_signature.png') {
-            \Log::info('Création d\'une signature admin par défaut');
-            $this->createAdminSignature();
-            
-            if (Storage::exists('public/signatures/admin_signature.png')) {
-                $file = Storage::get('public/signatures/admin_signature.png');
-                return response($file, 200)->header('Content-Type', 'image/png');
+            // Route générique
+            else {
+                // Essayer d'abord comme signature d'employé
+                $filePath = 'public/signatures/employees/' . $filename;
+                
+                // Si le fichier n'existe pas, essayer comme signature admin
+                if (!Storage::exists($filePath) && $filename === 'admin_signature.png') {
+                    $filePath = 'public/' . $this->signaturePaths['admin'];
+                }
             }
-        }
-        
-        // Si aucune signature n'est trouvée, renvoyer une image par défaut
-        \Log::warning('Aucune signature trouvée, utilisation d\'une image par défaut');
-        
-        // Créer une image de signature simple
-        $img = imagecreatetruecolor(300, 100);
-        $background = imagecolorallocate($img, 255, 255, 255);
-        $textcolor = imagecolorallocate($img, 0, 0, 0);
-        
-        // Fond blanc
-        imagefilledrectangle($img, 0, 0, 300, 100, $background);
-        
-        // Message "Signature non disponible"
-        imagestring($img, 5, 50, 40, "Signature non disponible", $textcolor);
-        
-        // Renvoyer l'image générée
-        ob_start();
-        imagepng($img);
-        $imageContent = ob_get_clean();
-        imagedestroy($img);
-        
-        return response($imageContent, 200)->header('Content-Type', 'image/png');
-    }
-    
-    /**
-     * Tente de copier une signature depuis un autre emplacement
-     */
-    private function tryToCopySignature($filename)
-    {
-        // Vérifier s'il s'agit d'une signature d'employé
-        if (preg_match('/^(\d+)_employee\.png$/', $filename, $matches)) {
-            $userId = $matches[1];
             
-            // Rechercher tous les fichiers possibles
-            $possibleFiles = glob(storage_path('app/*/*/*/' . $filename));
-            $possibleFiles = array_merge($possibleFiles, glob(storage_path('app/*/*/' . $filename)));
-            $possibleFiles = array_merge($possibleFiles, glob(storage_path('app/*/' . $filename)));
-            
-            if (!empty($possibleFiles)) {
-                // Créer les répertoires si nécessaire
-                $directories = [
-                    storage_path('app/public/signatures'),
-                    storage_path('app/private/signatures'),
-                    storage_path('app/private/private/signatures')
-                ];
-                
-                foreach ($directories as $dir) {
-                    if (!file_exists($dir)) {
-                        mkdir($dir, 0755, true);
-                    }
-                }
-                
-                // Copier le fichier vers tous les emplacements possibles
-                foreach ($directories as $dir) {
-                    if (!file_exists($dir . '/' . $filename)) {
-                        copy($possibleFiles[0], $dir . '/' . $filename);
-                    }
-                }
-                
-                \Log::info('Signature copiée avec succès', [
+            // Vérifier si le fichier existe
+            if (!Storage::exists($filePath)) {
+                Log::warning('Signature non trouvée', [
                     'filename' => $filename,
-                    'source' => $possibleFiles[0],
-                    'destinations' => $directories
+                    'path' => $filePath,
+                    'route' => $routeName
                 ]);
-                
-                return true;
+                return response()->file(public_path('images/no-signature.png'));
             }
-        }
-        
-        return false;
-    }
-    
-    /**
-     * Crée une signature admin par défaut
-     */
-    private function createAdminSignature()
-    {
-        \Log::info('Début de la création de la signature administrateur');
-        
-        // Créer les répertoires nécessaires avec les bonnes permissions
-        $directories = [
-            storage_path('app/public/signatures'),
-            storage_path('app/private/signatures')
-        ];
-        
-        foreach ($directories as $dir) {
-            if (!file_exists($dir)) {
-                if (!mkdir($dir, 0777, true)) {
-                    \Log::error('Impossible de créer le répertoire: ' . $dir);
-                    continue;
-                }
-                chmod($dir, 0777);
-                \Log::info('Répertoire créé: ' . $dir . ' avec permissions 0777');
-            }
-        }
-        
-        // Créer une image de signature plus grande et plus visible
-        $img = imagecreatetruecolor(600, 200);
-        if (!$img) {
-            \Log::error('Impossible de créer l\'image de signature');
-            return false;
-        }
-        
-        $background = imagecolorallocate($img, 255, 255, 255);
-        $textcolor = imagecolorallocate($img, 0, 0, 0);
-        
-        // Fond blanc
-        imagefilledrectangle($img, 0, 0, 600, 200, $background);
-        
-        // Dessiner une signature stylisée plus visible
-        $penWidth = 5; // Épaisseur du trait plus importante
-        
-        // Dessiner plusieurs lignes pour créer une signature épaisse visible
-        for ($i = 0; $i < $penWidth; $i++) {
-            // Première partie - arc signature
-            imagearc($img, 100 + $i, 100, 150, 80, 180, 270, $textcolor);
-            imageline($img, 100 + $i, 100, 200 + $i, 100, $textcolor);
             
-            // Deuxième partie - boucle
-            imagearc($img, 250 + $i, 90, 100, 60, 0, 350, $textcolor);
+            // Récupérer le contenu du fichier
+            $fileContents = Storage::get($filePath);
+            $mime = Storage::mimeType($filePath);
             
-            // Troisième partie - ligne finale
-            imageline($img, 300 + $i, 110, 450 + $i, 80, $textcolor);
+            Log::info('Signature trouvée et renvoyée', [
+                'filename' => $filename,
+                'path' => $filePath,
+                'mime' => $mime,
+                'route' => $routeName
+            ]);
+            
+            // Renvoyer le fichier avec le bon type MIME
+            return response($fileContents)
+                ->header('Content-Type', $mime)
+                ->header('Cache-Control', 'public, max-age=3600');
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de l\'affichage de la signature', [
+                'filename' => $filename,
+                'error' => $e->getMessage()
+            ]);
+            
+            // En cas d'erreur, renvoyer une image par défaut
+            return response()->file(public_path('images/no-signature.png'));
         }
-        
-        // Ajouter des points d'accentuation
-        imagefilledellipse($img, 80, 100, 10, 10, $textcolor);
-        imagefilledellipse($img, 450, 80, 10, 10, $textcolor);
-        
-        // Ajouter une ligne horizontale sous la signature
-        imagesetthickness($img, 3);
-        imageline($img, 80, 150, 450, 150, $textcolor);
-        
-        // Sauvegarder l'image dans un buffer
-        ob_start();
-        imagepng($img);
-        $signatureContent = ob_get_clean();
-        imagedestroy($img);
-        
-        if (empty($signatureContent)) {
-            \Log::error('Contenu de la signature vide après génération');
-            return false;
-        }
-        
-        \Log::info('Image de signature générée, taille: ' . strlen($signatureContent) . ' octets');
-        
-        // Sauvegarder le fichier directement dans le système de fichiers
-        $publicPath = storage_path('app/public/signatures/admin_signature.png');
-        $privatePath = storage_path('app/private/signatures/admin_signature.png');
-        
-        $publicSuccess = file_put_contents($publicPath, $signatureContent);
-        $privateSuccess = file_put_contents($privatePath, $signatureContent);
-        
-        // S'assurer que les fichiers ont les bonnes permissions
-        if ($publicSuccess) {
-            chmod($publicPath, 0777);
-            \Log::info('Signature admin enregistrée (méthode directe) dans: ' . $publicPath);
-            \Log::info('Permissions mises à jour: ' . substr(sprintf('%o', fileperms($publicPath)), -4));
-        } else {
-            \Log::error('Échec de l\'enregistrement de la signature admin dans: ' . $publicPath);
-        }
-        
-        if ($privateSuccess) {
-            chmod($privatePath, 0777);
-            \Log::info('Signature admin enregistrée (méthode directe) dans: ' . $privatePath);
-        }
-        
-        // Essayer aussi avec l'API Storage de Laravel comme alternative
-        $publicStorageSuccess = Storage::put('public/signatures/admin_signature.png', $signatureContent);
-        $privateStorageSuccess = Storage::put('private/signatures/admin_signature.png', $signatureContent);
-        
-        \Log::info('Résultat de l\'enregistrement via Storage: public=' . ($publicStorageSuccess ? 'OK' : 'ÉCHEC') . 
-                   ', private=' . ($privateStorageSuccess ? 'OK' : 'ÉCHEC'));
-        
-        $fileExists = file_exists($publicPath);
-        $fileSize = $fileExists ? filesize($publicPath) : 0;
-        \Log::info('Vérification finale: fichier existe=' . ($fileExists ? 'OUI' : 'NON') . ', taille=' . $fileSize . ' octets');
-         
-        return $publicSuccess || $publicStorageSuccess;
     }
 } 

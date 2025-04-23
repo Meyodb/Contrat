@@ -11,10 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->boolean('archived')->default(false)->after('is_admin');
-            $table->timestamp('archived_at')->nullable()->after('archived');
-        });
+        // Cette migration n'a plus besoin d'exécuter quoi que ce soit
+        // Les champs archived et archived_at sont déjà dans la table users
     }
 
     /**
@@ -22,8 +20,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['archived', 'archived_at']);
-        });
+        // Rien à faire
     }
 };

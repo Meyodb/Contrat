@@ -41,7 +41,7 @@ class TestController extends Controller
         $html = view('pdf.cdi-template', $contractData)->render();
 
         // Créer le PDF
-        $pdf = PDF::loadHTML($html);
+        $pdf = Pdf::loadHTML($html);
 
         // Télécharger le PDF
         return $pdf->download($contract->title . '.pdf');

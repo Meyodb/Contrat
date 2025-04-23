@@ -101,11 +101,17 @@
                                         </a>
                                     </li>
                                 @else
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ route('employee.contracts.index') }}">Mes contrats</a>
-                                    </li>
+                                    <!-- Suppression du lien redondant ici -->
                                 @endif
                             @endauth
+                            <!-- Partie du menu pour les employés -->
+                            @if(Auth::check() && !Auth::user()->is_admin)
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('employee.contracts.*') ? 'active' : '' }}" href="{{ route('employee.contracts.index') }}">
+                                    <i class="bi bi-file-earmark-text"></i> Mes contrats
+                                </a>
+                            </li>
+                            @endif
                             <li class="nav-item dropdown">
                                 <a id="navbarDropdown" class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" v-pre>
                                     @if(Auth::check() && Auth::user()->is_admin)
@@ -119,7 +125,11 @@
                                 <div class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                                     @if(Auth::check() && Auth::user()->is_admin)
                                         <a class="dropdown-item" href="{{ route('admin.profile.show') }}">
-                                            <i class="bi bi-person"></i> Mon profil
+                                            <i class="bi bi-person-circle"></i> Mon profil
+                                        </a>
+                                    @else
+                                        <a class="dropdown-item" href="{{ route('employee.profile.show') }}">
+                                            <i class="bi bi-person-circle"></i> Mon profil
                                         </a>
                                     @endif
                                     <a class="dropdown-item" href="{{ route('logout') }}"
@@ -206,5 +216,20 @@
     
     @yield('scripts')
     @stack('scripts')
+
+    @php
+    // Fonction helper pour générer l'URL correcte d'une photo de profil
+    function profilePhotoUrl($photoPath) {
+        if (empty($photoPath)) {
+            return asset('img/default-profile.png');
+        }
+        
+        if (strpos($photoPath, 'photos/') === 0) {
+            return asset($photoPath);
+        } else {
+            return \Storage::url($photoPath);
+        }
+    }
+    @endphp
 </body>
 </html>

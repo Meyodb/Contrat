@@ -6,9 +6,6 @@
         <div class="col-md-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1>Gestion des utilisateurs</h1>
-                <a href="{{ route('admin.users.create') }}" class="btn btn-primary">
-                    <i class="bi bi-person-plus"></i> Créer un utilisateur
-                </a>
             </div>
             
             @if(session('status'))
@@ -39,8 +36,13 @@
             </ul>
             
             <div class="card">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">{{ request('archived') === '1' ? 'Liste des utilisateurs archivés' : 'Liste des utilisateurs actifs' }}</h5>
+                    <div>
+                        <a href="{{ route('admin.users.create') }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-plus-circle"></i> Ajouter un utilisateur
+                        </a>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="row mb-4">
@@ -81,6 +83,7 @@
                             <table class="table table-striped">
                                 <thead>
                                     <tr>
+                                        <th>Photo</th>
                                         <th>Nom</th>
                                         <th>Email</th>
                                         <th>Rôle</th>
@@ -95,6 +98,20 @@
                                 <tbody>
                                     @foreach($users as $user)
                                         <tr>
+                                            <td>
+                                                <div class="user-photo-container" onclick="showPhotoModal('{{ $user->id }}')">
+                                                    @if($user->profile_photo_path)
+                                                        <img src="{{ strpos($user->profile_photo_path, 'photos/') === 0 ? asset($user->profile_photo_path) : Storage::url($user->profile_photo_path) }}" 
+                                                            alt="Photo de {{ $user->name }}" 
+                                                            class="user-profile-photo"
+                                                            onerror="this.onerror=null; this.src='{{ asset('img/default-profile.png') }}'; console.error('Image non trouvée');">
+                                                    @else
+                                                        <div class="profile-photo-placeholder">
+                                                            <i class="bi bi-person-circle"></i>
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            </td>
                                             <td>{{ $user->name }}</td>
                                             <td>{{ $user->email }}</td>
                                             <td>{{ $user->is_admin ? 'Administrateur' : 'Employé' }}</td>
@@ -182,4 +199,89 @@
         </div>
     </div>
 </div>
+
+<!-- Modal pour afficher la photo de profil en grand -->
+<div class="modal fade" id="photoModal" tabindex="-1" aria-labelledby="photoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="photoModalLabel">Photo de profil</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalUserPhoto" src="" alt="Photo de profil" class="img-fluid">
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .user-photo-container {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        background-color: #f0f0f0;
+    }
+    
+    .user-profile-photo {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .profile-photo-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 1.5rem;
+        color: #6c757d;
+    }
+</style>
+
+<script>
+    function showPhotoModal(userId) {
+        // Récupérer les utilisateurs depuis la collection Laravel
+        const users = {!! $users->toJson() !!};
+        // Trouver l'utilisateur par ID
+        const user = users.data.find(u => u.id == userId);
+        
+        const modal = new bootstrap.Modal(document.getElementById('photoModal'));
+        
+        if (user && user.profile_photo_path) {
+            let photoUrl;
+            
+            // Vérifier si le chemin commence par 'photos/'
+            if (user.profile_photo_path.startsWith('photos/')) {
+                photoUrl = '/' + user.profile_photo_path;
+            } else {
+                photoUrl = '/storage/' + user.profile_photo_path;
+            }
+            
+            document.getElementById('modalUserPhoto').src = photoUrl;
+            document.getElementById('photoModalLabel').textContent = 'Photo de ' + user.name;
+            
+            // Ajouter une gestion d'erreur de chargement d'image
+            const img = document.getElementById('modalUserPhoto');
+            img.onerror = function() {
+                console.error('Erreur de chargement de l\'image:', photoUrl);
+                this.src = '/img/default-profile.png';
+                document.getElementById('photoModalLabel').textContent = 'Photo de ' + user.name + ' (par défaut)';
+            };
+            
+            modal.show();
+        } else {
+            // Si l'utilisateur n'a pas de photo, afficher une photo par défaut
+            document.getElementById('modalUserPhoto').src = '/img/default-profile.png';
+            document.getElementById('photoModalLabel').textContent = 'Photo de profil non disponible';
+            modal.show();
+        }
+    }
+</script>
 @endsection 

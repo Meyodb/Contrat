@@ -12,12 +12,9 @@
                             {{ $user->is_admin ? 'Administrateur' : 'Employé' }}
                         </span>
                     </div>
-                    @if($user->contracts->isNotEmpty() && $user->contracts->first()->data && $user->contracts->first()->data->photo_path)
+                    @if($user->profile_photo_path)
                     <div>
-                        @php
-                            $photoFilename = basename($user->contracts->first()->data->photo_path);
-                        @endphp
-                        <img src="{{ route('employee.photo', ['filename' => $photoFilename]) }}" alt="Photo d'identité" class="img-thumbnail" style="max-height: 120px;">
+                        <img src="{{ asset('storage/' . $user->profile_photo_path) }}" alt="Photo de profil" class="img-thumbnail" style="max-height: 120px;">
                     </div>
                     @endif
                 </div>

@@ -1,18 +1,96 @@
 #!/usr/bin/env php
 <?php
 
-use Illuminate\Foundation\Application;
-use Symfony\Component\Console\Input\ArgvInput;
+// Script de correction des photos manquantes dans le système
 
-define('LARAVEL_START', microtime(true));
-
-// Register the Composer autoloader...
 require __DIR__.'/vendor/autoload.php';
 
-// Bootstrap Laravel and handle the command...
-/** @var Application $app */
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Foundation\Application;
+
 $app = require_once __DIR__.'/bootstrap/app.php';
+$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+$kernel->bootstrap();
 
-$status = $app->handleCommand(new ArgvInput);
+echo "Script de correction des photos de profil\n";
+echo "======================================\n\n";
 
-exit($status);
+// Vérifier si le répertoire des photos existe
+$photoDir = storage_path('app/public/employee_photos');
+if (!file_exists($photoDir)) {
+    mkdir($photoDir, 0755, true);
+    echo "✅ Répertoire employee_photos créé: $photoDir\n";
+} else {
+    echo "✓ Le répertoire employee_photos existe déjà\n";
+}
+
+// Vérifier que le répertoire est accessible en écriture
+if (!is_writable($photoDir)) {
+    chmod($photoDir, 0755);
+    echo "✅ Permissions du répertoire employee_photos ajustées\n";
+} else {
+    echo "✓ Le répertoire employee_photos est accessible en écriture\n";
+}
+
+// Vérifier si le lien symbolique existe
+if (!file_exists(public_path('storage'))) {
+    echo "ℹ️ Le lien symbolique storage n'existe pas, création en cours...\n";
+    try {
+        \Artisan::call('storage:link');
+        echo "✅ Lien symbolique storage:link créé\n";
+    } catch (Exception $e) {
+        echo "❌ Erreur lors de la création du lien symbolique: " . $e->getMessage() . "\n";
+    }
+} else {
+    echo "✓ Le lien symbolique storage existe déjà\n";
+}
+
+// Récupérer toutes les données de contrat avec des photos
+echo "\nRecherche des photos d'employés...\n";
+$contractsWithPhotos = \App\Models\ContractData::whereNotNull('photo_path')->get();
+echo "Trouvé " . count($contractsWithPhotos) . " contrats avec des photos\n\n";
+
+$count = 0;
+$errors = 0;
+$synced = 0;
+
+foreach ($contractsWithPhotos as $data) {
+    // Vérifier si le fichier existe
+    $photoPath = storage_path('app/public/' . $data->photo_path);
+    
+    echo "Traitement de la photo: " . $data->photo_path . "\n";
+    
+    if (!file_exists($photoPath)) {
+        echo "❌ Photo manquante: " . $photoPath . "\n";
+        $errors++;
+        continue;
+    }
+    
+    // Mettre à jour le profil utilisateur associé
+    $contract = \App\Models\Contract::find($data->contract_id);
+    if ($contract && $contract->user) {
+        // Vérifier si la photo de profil est différente ou inexistante
+        if ($contract->user->profile_photo_path !== $data->photo_path) {
+            $contract->user->update([
+                'profile_photo_path' => $data->photo_path
+            ]);
+            echo "✅ Photo de profil synchronisée: " . $data->photo_path . " pour l'utilisateur #" . $contract->user_id . "\n";
+            $synced++;
+        } else {
+            echo "✓ La photo de profil est déjà synchronisée\n";
+        }
+        $count++;
+    } else {
+        echo "❌ Pas d'utilisateur trouvé pour le contrat #" . $data->contract_id . "\n";
+        $errors++;
+    }
+}
+
+echo "\n======== RÉSUMÉ ========\n";
+echo "Total de photos traitées: " . $count . "\n";
+echo "Photos synchronisées: " . $synced . "\n";
+echo "Erreurs: " . $errors . "\n";
+echo "========================\n";
+
+echo "\nTraitement terminé.\n";

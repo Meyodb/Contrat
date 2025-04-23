@@ -19,7 +19,10 @@
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Liste des contrats</h5>
-                        <div>
+                        <div class="d-flex gap-2">
+                            <a href="{{ route('admin.contracts.create') }}" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> Créer un contrat
+                            </a>
                             <form action="{{ route('admin.contracts.index') }}" method="GET" class="d-flex">
                                 <select name="status" class="form-select me-2" onchange="this.form.submit()">
                                     <option value="">Tous les statuts</option>
@@ -53,17 +56,19 @@
                             <table class="table table-striped">
                                 <thead>
                                     <tr>
-                                        <th>Employé</th>
-                                        <th>Statut</th>
-                                        <th>Heures par mois</th>
-                                        <th>Date de soumission</th>
-                                        <th class="text-center" style="width: 150px;">Actions</th>
+                                        <th style="width: 5%">ID</th>
+                                        <th style="width: 20%">Employé</th>
+                                        <th style="width: 15%">Statut</th>
+                                        <th style="width: 15%">Heures par mois</th>
+                                        <th style="width: 15%">Date de soumission</th>
+                                        <th style="width: 10%" class="text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($contracts as $contract)
                                         <tr>
-                                            <td>{{ $contract->user->name }}</td>
+                                            <td>{{ $contract->id }}</td>
+                                            <td>{{ $contract->user ? $contract->user->name : 'Utilisateur supprimé' }}</td>
                                             <td>
                                                 @if($contract->status == 'draft')
                                                     <span class="badge bg-secondary">Brouillon</span>
@@ -82,8 +87,8 @@
                                                 @endif
                                             </td>
                                             <td>{{ $contract->data && $contract->data->monthly_hours ? $contract->data->monthly_hours : 'N/A' }}</td>
-                                            <td>{{ $contract->created_at ? $contract->created_at->format('d/m/Y') : 'Non spécifiée' }}</td>
-                                            <td>
+                                            <td>{{ $contract->submitted_at ? $contract->submitted_at->format('d/m/Y') : ($contract->created_at ? $contract->created_at->format('d/m/Y') : 'Non spécifiée') }}</td>
+                                            <td class="text-center">
                                                 <div class="btn-group">
                                                     <a href="{{ route('admin.contracts.show', $contract) }}" class="btn btn-sm btn-primary">
                                                         <i class="bi bi-eye"></i>

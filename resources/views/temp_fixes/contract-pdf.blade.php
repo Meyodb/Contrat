@@ -7,34 +7,34 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            font-size: 11pt;
-            line-height: 1.6;
+            font-size: 10pt;
+            line-height: 1.4;
             color: #000;
             margin: 0;
-            padding: 25px;
+            padding: 20px;
         }
         h1 {
-            font-size: 14pt;
+            font-size: 12pt;
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             text-transform: uppercase;
             font-weight: bold;
         }
         p {
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             text-align: justify;
         }
         .header {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
         }
         .article {
-            margin-top: 20px;
-            margin-bottom: 20px;
+            margin-top: 15px;
+            margin-bottom: 15px;
         }
         .article-title {
             font-weight: bold;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         .signature-block {
             margin-top: 50px;
@@ -50,12 +50,12 @@
             text-align: center;
         }
         .signature-image {
-            height: 100px;
+            height: 70px;
             margin-bottom: 10px;
             position: relative;
         }
         .signature-image img {
-            max-height: 80px;
+            max-height: 60px;
             max-width: 100%;
             position: absolute;
             bottom: 5px;
@@ -71,7 +71,61 @@
             text-align: left;
         }
         @page {
-            margin: 2.5cm 2cm;
+            margin: 2cm 1.5cm;
+        }
+        .attendance-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+        .attendance-table td, .attendance-table th {
+            border: 1px solid #000;
+            padding: 3px;
+            text-align: center;
+            font-size: 9pt;
+            height: 22px;
+        }
+        .attendance-table th {
+            background-color: #f3f3f3;
+            font-weight: bold;
+            height: 25px;
+        }
+        .signature-small {
+            max-height: 60px;
+            max-width: 140px;
+        }
+        @media print {
+            body {
+                font-size: 10pt;
+                line-height: 1.3;
+                padding: 0;
+                margin: 0;
+            }
+            .attendance-table {
+                page-break-inside: avoid;
+            }
+            .attendance-table td, .attendance-table th {
+                border: 1px solid #000 !important;
+                padding: 2px;
+            }
+            .footer {
+                page-break-before: avoid;
+            }
+            .signature-small {
+                max-height: 50px;
+                max-width: 120px;
+            }
+            img {
+                max-width: 100% !important;
+            }
+            #pied-page {
+                position: fixed;
+                bottom: 5px;
+                left: 5px;
+                font-size: 7pt;
+                color: #666;
+            }
         }
     </style>
 </head>
@@ -201,15 +255,14 @@
         <p>A Paris, le {{ (is_object($data) && isset($data->contract_start_date)) ? date('d/m/Y', strtotime($data->contract_start_date)) : '___________' }}</p>
         
         <!-- Signatures -->
-        <div style="margin-top: 80px; margin-bottom: 20px;">
+        <div style="margin-top: 50px; margin-bottom: 15px;">
             <table width="100%" style="border-spacing: 0;">
                 <tr>
-                    <td width="45%" style="text-align: center; vertical-align: top; padding-top: 10px;">
-                        <p style="margin-bottom: 10px; text-align: center;"><strong>L'employeur</strong></p>
-                        <p style="text-align: center;">M BRIAND Grégory</p>
-                        <p style="text-align: center;">Pour la société</p>
-                        <p style="text-align: center;">{{ $admin->name ?? 'L\'administrateur' }}</p>
-                        <p>&nbsp;</p>
+                    <td width="45%" style="text-align: center; vertical-align: top; padding-top: 5px;">
+                        <p style="margin-bottom: 5px; text-align: center; font-size: 10pt;"><strong>L'employeur</strong></p>
+                        <p style="text-align: center; font-size: 9pt; margin-bottom: 2px;">M BRIAND Grégory</p>
+                        <p style="text-align: center; font-size: 9pt; margin-bottom: 2px;">Pour la société</p>
+                        <p style="text-align: center; font-size: 9pt; margin-bottom: 5px;">{{ $admin->name ?? 'L\'administrateur' }}</p>
                         <div style="text-align: center;">
                         @php
                             // Si la signature de l'admin est déjà passée par le controller, on l'utilise directement
@@ -217,66 +270,69 @@
                                 // On utilise directement la variable existante
                                 \Log::info('Signature admin déjà présente, longueur: ' . strlen($adminSignatureBase64));
                             } else {
-                                // Sinon on essaie de la calculer (ancien comportement)
+                                // On efface cette partie pour les prévisualisations non signées
                                 $adminSignatureBase64 = '';
                                 
-                                // Tenter de charger la signature de l'administrateur
-                                if (isset($admin_signature)) {
-                                    // Si on a un chemin de signature admin, essayer de charger le fichier
-                                    $adminSignaturePath = storage_path('app/public/signatures/' . $admin_signature);
+                                // Vérifier si on doit afficher la signature (uniquement si le contrat est explicitement signé par l'admin)
+                                if (isset($contract) && in_array($contract->status ?? '', ['admin_signed', 'employee_signed', 'completed'])) {
+                                    // Tenter de charger la signature de l'administrateur
+                                    if (isset($admin_signature)) {
+                                        // Si on a un chemin de signature admin, essayer de charger le fichier
+                                        $adminSignaturePath = storage_path('app/public/signatures/' . $admin_signature);
+                                        
+                                        if (file_exists($adminSignaturePath)) {
+                                            try {
+                                                $adminSignatureContent = file_get_contents($adminSignaturePath);
+                                                $adminSignatureBase64 = base64_encode($adminSignatureContent);
+                                                
+                                                \Log::info('Chargement signature admin depuis $admin_signature', [
+                                                    'chemin' => $adminSignaturePath,
+                                                    'taille_base64' => strlen($adminSignatureBase64)
+                                                ]);
+                                            } catch (Exception $e) {
+                                                \Log::error('Erreur lors du chargement de la signature admin: ' . $e->getMessage());
+                                            }
+                                        }
+                                    }
                                     
-                                    if (file_exists($adminSignaturePath)) {
+                                    // Si toujours pas de signature, essayer le chemin par défaut
+                                    if (empty($adminSignatureBase64) && \Storage::exists('public/signatures/admin_signature.png')) {
                                         try {
-                                            $adminSignatureContent = file_get_contents($adminSignaturePath);
+                                            $adminSignatureContent = \Storage::get('public/signatures/admin_signature.png');
                                             $adminSignatureBase64 = base64_encode($adminSignatureContent);
                                             
-                                            \Log::info('Chargement signature admin depuis $admin_signature', [
-                                                'chemin' => $adminSignaturePath,
+                                            \Log::info('Chargement signature admin depuis chemin par défaut', [
                                                 'taille_base64' => strlen($adminSignatureBase64)
                                             ]);
                                         } catch (Exception $e) {
                                             \Log::error('Erreur lors du chargement de la signature admin: ' . $e->getMessage());
                                         }
                                     }
-                                }
-                                
-                                // Si toujours pas de signature, essayer le chemin par défaut
-                                if (empty($adminSignatureBase64) && \Storage::exists('public/signatures/admin_signature.png')) {
-                                    try {
-                                        $adminSignatureContent = \Storage::get('public/signatures/admin_signature.png');
-                                        $adminSignatureBase64 = base64_encode($adminSignatureContent);
-                                        
-                                        \Log::info('Chargement signature admin depuis chemin par défaut', [
-                                            'taille_base64' => strlen($adminSignatureBase64)
-                                        ]);
-                                    } catch (Exception $e) {
-                                        \Log::error('Erreur lors du chargement de la signature admin: ' . $e->getMessage());
-                                    }
-                                }
-                                
-                                // Si toujours rien, générer une signature par défaut
-                                if (empty($adminSignatureBase64)) {
-                                    try {
-                                        // Créer une image simple
-                                        $img = imagecreatetruecolor(300, 100);
-                                        $bg = imagecolorallocate($img, 255, 255, 255);
-                                        $textcolor = imagecolorallocate($img, 0, 0, 0);
-                                        
-                                        // Dessiner un fond blanc
-                                        imagefilledrectangle($img, 0, 0, 300, 100, $bg);
-                                        
-                                        // Ajouter un texte
-                                        imagestring($img, 5, 70, 40, "Signature Administrateur", $textcolor);
-                                        
-                                        // Capturer l'image en mémoire
-                                        ob_start();
-                                        imagepng($img);
-                                        $adminSignatureContent = ob_get_clean();
-                                        imagedestroy($img);
-                                        
-                                        $adminSignatureBase64 = base64_encode($adminSignatureContent);
-                                    } catch (Exception $e) {
-                                        \Log::error('Erreur lors de la génération de la signature admin: ' . $e->getMessage());
+                                    
+                                    // Si toujours rien, générer une signature par défaut
+                                    if (empty($adminSignatureBase64)) {
+                                        try {
+                                            // Créer une image simple
+                                            $img = imagecreatetruecolor(300, 100);
+                                            $bg = imagecolorallocate($img, 255, 255, 255);
+                                            $textcolor = imagecolorallocate($img, 0, 0, 0);
+                                            
+                                            // Dessiner un fond blanc
+                                            imagefilledrectangle($img, 0, 0, 300, 100, $bg);
+                                            
+                                            // Ajouter un texte
+                                            imagestring($img, 5, 70, 40, "Signature Administrateur", $textcolor);
+                                            
+                                            // Capturer l'image en mémoire
+                                            ob_start();
+                                            imagepng($img);
+                                            $adminSignatureContent = ob_get_clean();
+                                            imagedestroy($img);
+                                            
+                                            $adminSignatureBase64 = base64_encode($adminSignatureContent);
+                                        } catch (Exception $e) {
+                                            \Log::error('Erreur lors de la génération de la signature admin: ' . $e->getMessage());
+                                        }
                                     }
                                 }
                             }
@@ -292,10 +348,9 @@
                         </div>
                     </td>
                     <td width="10%">&nbsp;</td>
-                    <td width="45%" style="text-align: center; vertical-align: top; padding-top: 10px;">
-                        <p style="margin-bottom: 10px; text-align: center;"><strong>L'employé(e)</strong></p>
-                        <p style="text-align: center;">{{ $data->first_name ?? '' }} {{ $data->last_name ?? '' }}</p>
-                        <p>&nbsp;</p>
+                    <td width="45%" style="text-align: center; vertical-align: top; padding-top: 5px;">
+                        <p style="margin-bottom: 5px; text-align: center; font-size: 10pt;"><strong>L'employé(e)</strong></p>
+                        <p style="text-align: center; font-size: 9pt; margin-bottom: 10px;">{{ $data->first_name ?? '' }} {{ $data->last_name ?? '' }}</p>
                         <div style="text-align: center;">
                         @php
                             // Si la signature de l'employé est déjà passée par le controller, on l'utilise directement
@@ -303,73 +358,70 @@
                                 // On utilise directement la variable existante
                                 \Log::info('Signature employé déjà présente, longueur: ' . strlen($employeeSignatureBase64));
                             } else {
-                                // Sinon on essaie de la calculer (ancien comportement)
+                                // On efface cette partie pour les prévisualisations non signées
                                 $employeeSignatureBase64 = '';
                                 
-                                // 1. Essayer avec le chemin spécifique à l'employé si disponible
-                                if (isset($data) && isset($data->user_id)) {
-                                    $employeeSignaturePath = storage_path('app/public/signatures/' . $data->user_id . '_employee.png');
-                                    
-                                    if (file_exists($employeeSignaturePath)) {
-                                        try {
-                                            $employeeSignatureContent = file_get_contents($employeeSignaturePath);
-                                            $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                                            
-                                            \Log::info('Chargement signature employé depuis user_id', [
-                                                'chemin' => $employeeSignaturePath,
-                                                'taille_base64' => strlen($employeeSignatureBase64)
-                                            ]);
-                                        } catch (Exception $e) {
-                                            \Log::error('Erreur lors du chargement de la signature employé: ' . $e->getMessage());
+                                // Vérifier si on doit afficher la signature (uniquement si ce n'est pas une prévisualisation ou si le contrat est signé par l'employé)
+                                if (!(isset($is_preview) && $is_preview === true) || (isset($contract) && in_array($contract->status ?? '', ['employee_signed', 'completed']))) {
+                                    // 1. Essayer avec le chemin spécifique à l'employé si disponible
+                                    if (isset($data) && isset($data->user_id)) {
+                                        $employeeSignaturePath = storage_path('app/public/signatures/' . $data->user_id . '_employee.png');
+                                        
+                                        if (file_exists($employeeSignaturePath)) {
+                                            try {
+                                                $employeeSignatureContent = file_get_contents($employeeSignaturePath);
+                                                $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
+                                                
+                                                \Log::info('Chargement signature employé depuis user_id', [
+                                                    'chemin' => $employeeSignaturePath,
+                                                    'taille_base64' => strlen($employeeSignatureBase64)
+                                                ]);
+                                            } catch (Exception $e) {
+                                                \Log::error('Erreur lors du chargement de la signature employé: ' . $e->getMessage());
+                                            }
                                         }
                                     }
-                                }
-                                
-                                // 2. Si aucune signature trouvée et qu'on a employee_signature, l'utiliser
-                                if (empty($employeeSignatureBase64) && isset($employee_signature)) {
-                                    $employeeSignaturePath = storage_path('app/public/signatures/' . $employee_signature);
                                     
-                                    if (file_exists($employeeSignaturePath)) {
-                                        try {
-                                            $employeeSignatureContent = file_get_contents($employeeSignaturePath);
-                                            $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                                            
-                                            \Log::info('Chargement signature employé depuis $employee_signature', [
-                                                'chemin' => $employeeSignaturePath,
-                                                'taille_base64' => strlen($employeeSignatureBase64)
-                                            ]);
-                                        } catch (Exception $e) {
-                                            \Log::error('Erreur lors du chargement de la signature employé: ' . $e->getMessage());
+                                    // 2. Si aucune signature trouvée et qu'on a employee_signature, l'utiliser
+                                    if (empty($employeeSignatureBase64) && isset($employee_signature)) {
+                                        $employeeSignaturePath = storage_path('app/public/signatures/' . $employee_signature);
+                                        
+                                        if (file_exists($employeeSignaturePath)) {
+                                            try {
+                                                $employeeSignatureContent = file_get_contents($employeeSignaturePath);
+                                                $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
+                                                
+                                                \Log::info('Chargement signature employé depuis $employee_signature', [
+                                                    'chemin' => $employeeSignaturePath,
+                                                    'taille_base64' => strlen($employeeSignatureBase64)
+                                                ]);
+                                            } catch (Exception $e) {
+                                                \Log::error('Erreur lors du chargement de la signature employé: ' . $e->getMessage());
+                                            }
                                         }
                                     }
-                                }
-                                
-                                // 3. Si aucune signature trouvée et qu'on a contract->user_id, essayer avec
-                                if (empty($employeeSignatureBase64) && isset($contract) && isset($contract->user_id)) {
-                                    $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
                                     
-                                    if (file_exists($employeeSignaturePath)) {
-                                        try {
-                                            $employeeSignatureContent = file_get_contents($employeeSignaturePath);
-                                            $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
-                                            
-                                            \Log::info('Chargement signature employé depuis contract->user_id', [
-                                                'chemin' => $employeeSignaturePath,
-                                                'taille_base64' => strlen($employeeSignatureBase64)
-                                            ]);
-                                        } catch (Exception $e) {
-                                            \Log::error('Erreur lors du chargement de la signature employé: ' . $e->getMessage());
+                                    // 3. Si aucune signature trouvée et qu'on a contract->user_id, essayer avec
+                                    if (empty($employeeSignatureBase64) && isset($contract) && isset($contract->user_id)) {
+                                        $employeeSignaturePath = storage_path('app/public/signatures/' . $contract->user_id . '_employee.png');
+                                        
+                                        if (file_exists($employeeSignaturePath)) {
+                                            try {
+                                                $employeeSignatureContent = file_get_contents($employeeSignaturePath);
+                                                $employeeSignatureBase64 = base64_encode($employeeSignatureContent);
+                                                
+                                                \Log::info('Chargement signature employé depuis contract->user_id', [
+                                                    'chemin' => $employeeSignaturePath,
+                                                    'taille_base64' => strlen($employeeSignatureBase64)
+                                                ]);
+                                            } catch (Exception $e) {
+                                                \Log::error('Erreur lors du chargement de la signature employé: ' . $e->getMessage());
+                                            }
                                         }
                                     }
-                                }
-                                
-                                // 4. Si toujours rien, utiliser une signature générique
-                                if (empty($employeeSignatureBase64)) {
-                                    // Pas de signature, créer une image vide
-                                    // (comportement par défaut)
                                 }
                             }
-                        ?>
+                        @endphp
                         
                         @if(!empty($employeeSignatureBase64))
                             <img src="{{ strpos($employeeSignatureBase64, 'data:') === 0 ? $employeeSignatureBase64 : 'data:image/png;base64,' . $employeeSignatureBase64 }}" alt="Signature de l'employé" style="max-height: 100px; margin: 0 auto;">
@@ -388,15 +440,42 @@
     <!-- Forcer un saut de page avant l'annexe -->
     <div style="page-break-before: always;"></div>
 
-    <div class="addendum" style="border-top: none; margin-top: 50px;">
-        <p>Paris le {{ (is_object($data) && isset($data->contract_start_date)) ? date('d/m/Y', strtotime($data->contract_start_date)) : '___________' }}</p>
+    <!-- Tableau d'émargement -->
+    <div style="margin-top: 20px; margin-bottom: 30px;">
+        <h3 style="font-size: 11pt; text-align: center; margin-bottom: 10px;">FEUILLE D'ÉMARGEMENT - {{ date('Y') }}</h3>
+        <p style="text-align: center; font-size: 9pt; margin-bottom: 10px;">Formation/Réunion du {{ date('d/m/Y') }} - Paris</p>
+        
+        <table class="attendance-table">
+            <thead>
+                <tr>
+                    <th width="25%">Nom</th>
+                    <th width="25%">Prénom</th>
+                    <th width="25%">Date</th>
+                    <th width="25%">Signature</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for($i = 1; $i <= 8; $i++)
+                <tr style="height: 25px;">
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                </tr>
+                @endfor
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="addendum" style="border-top: none; margin-top: 30px;">
+        <p style="font-size: 10pt;">Paris le {{ (is_object($data) && isset($data->contract_start_date)) ? date('d/m/Y', strtotime($data->contract_start_date)) : '___________' }}</p>
 
-        <p>Je soussigné, {{ (is_object($data) && isset($data->gender) && $data->gender == 'M') ? 'Monsieur' : 'Madame' }} {{ (is_object($data) && isset($data->last_name)) ? $data->last_name : '___________' }} {{ (is_object($data) && isset($data->first_name)) ? $data->first_name : '___________' }}, né(e) le {{ (is_object($data) && isset($data->birth_date)) ? date('d/m/Y', strtotime($data->birth_date)) : '___________' }} à {{ (is_object($data) && isset($data->birth_place)) ? $data->birth_place : '___________' }} souhaite ne solliciter un poste que de {{ (is_object($data) && isset($data->weekly_hours)) ? $data->weekly_hours : '___________' }} heures par semaine au sein de la société Whatever, pour le moment.</p>
+        <p style="font-size: 10pt;">Je soussigné, {{ (is_object($data) && isset($data->gender) && $data->gender == 'M') ? 'Monsieur' : 'Madame' }} {{ (is_object($data) && isset($data->last_name)) ? $data->last_name : '___________' }} {{ (is_object($data) && isset($data->first_name)) ? $data->first_name : '___________' }}, né(e) le {{ (is_object($data) && isset($data->birth_date)) ? date('d/m/Y', strtotime($data->birth_date)) : '___________' }} à {{ (is_object($data) && isset($data->birth_place)) ? $data->birth_place : '___________' }} souhaite ne solliciter un poste que de {{ (is_object($data) && isset($data->weekly_hours)) ? $data->weekly_hours : '___________' }} heures par semaine au sein de la société Whatever, pour le moment.</p>
 
-        <p>Cordialement,</p>
+        <p style="font-size: 10pt;">Cordialement,</p>
 
-        <div style="margin-top:60px;">
-            <p><strong>Signature :</strong></p>
+        <div style="margin-top:40px;">
+            <p style="font-size: 10pt;"><strong>Signature :</strong></p>
             @if(!empty($employeeSignatureBase64))
                 <img src="{{ strpos($employeeSignatureBase64, 'data:') === 0 ? $employeeSignatureBase64 : 'data:image/png;base64,' . $employeeSignatureBase64 }}" alt="Signature de l'employé" style="max-height: 100px; margin-top: 20px;">
             @else
@@ -405,5 +484,15 @@
             @endif
         </div>
     </div>  
+
+    <!-- Pied de page avec informations de génération -->
+    <div style="position: fixed; bottom: 10px; left: 10px; font-size: 8pt; color: #999;">
+        Document généré le {{ $generatedAt }}
+    </div>
+    
+    <!-- Information d'impression -->
+    <div id="pied-page">
+        Document imprimé le <?php echo date('d/m/Y à H:i'); ?> - Whatever SAS - Tous droits réservés
+    </div>
 </body>
 </html>

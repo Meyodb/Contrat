@@ -27,7 +27,7 @@
                         
                         <div class="mb-3">
                             <label for="employee_name" class="form-label">Employé</label>
-                            <input type="text" class="form-control" value="{{ $contract->user->name }}" readonly>
+                            <input type="text" class="form-control" value="{{ $contract->user ? $contract->user->name : 'Utilisateur supprimé' }}" readonly>
                         </div>
                         
                         <div class="mb-3">
@@ -147,17 +147,23 @@
                             
                             <div class="row mb-3">
                                 <div class="col-md-12">
-                                    <label for="employee_photo" class="form-label">Photo de l'employé</label>
-                                    <input type="file" class="form-control @error('employee_photo') is-invalid @enderror" id="employee_photo" name="employee_photo" accept="image/*">
-                                    <div class="form-text">Téléchargez une photo d'identité de l'employé (format JPG, PNG ou GIF, max 2MB)</div>
-                                    @error('employee_photo')
+                                    <label for="profile_photo" class="form-label">Photo de profil</label>
+                                    <div class="text-center mb-3">
+                                        @if($contract->user && $contract->user->profile_photo_path)
+                                            <img src="{{ strpos($contract->user->profile_photo_path, 'photos/') === 0 ? asset($contract->user->profile_photo_path) : Storage::url($contract->user->profile_photo_path) }}" 
+                                                alt="Photo de profil" class="img-thumbnail rounded-circle" style="width: 150px; height: 150px; object-fit: cover;"
+                                                onerror="this.onerror=null; this.src='{{ asset('img/default-profile.png') }}'; console.error('Image non trouvée');">
+                                        @else
+                                            <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 150px; height: 150px; font-size: 3rem; margin: 0 auto;">
+                                                {{ strtoupper(substr($contract->user ? $contract->user->name : 'U', 0, 1)) }}
+                                            </div>
+                                        @endif
+                                    </div>
+                                    <input type="file" class="form-control @error('profile_photo') is-invalid @enderror" id="profile_photo" name="profile_photo" accept="image/*">
+                                    <div class="form-text">Téléchargez une photo de profil pour l'employé (format JPG, PNG ou GIF, max 2MB).</div>
+                                    @error('profile_photo')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
-                                    @if(isset($contract->data) && isset($contract->data->photo_path))
-                                        <div class="mt-2">
-                                            <img src="{{ asset('storage/' . $contract->data->photo_path) }}" alt="Photo de l'employé" class="img-thumbnail" style="max-height: 100px;">
-                                        </div>
-                                    @endif
                                 </div>
                             </div>
                             
@@ -191,7 +197,7 @@
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     <label for="email" class="form-label">Email</label>
-                                    <input type="email" class="form-control @error('data.email') is-invalid @enderror" id="email" name="data[email]" value="{{ old('data.email', $contract->data ? $contract->data->email : $contract->user->email) }}">
+                                    <input type="email" name="email" id="email" class="form-control" value="{{ old('email', $contract->data ? $contract->data->email : ($contract->user ? $contract->user->email : '')) }}">
                                     @error('data.email')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -233,7 +239,9 @@
 
                             <div class="mb-3">
                                 <label for="data[social_security_number]" class="form-label">Numéro de sécurité sociale</label>
-                                <input type="text" class="form-control @error('data.social_security_number') is-invalid @enderror" id="social_security_number" name="data[social_security_number]" value="{{ old('data.social_security_number', $contract->data && $contract->data->social_security_number ? $contract->data->social_security_number : '') }}">
+                                <input type="text" class="form-control @error('data.social_security_number') is-invalid @enderror" id="social_security_number" name="data[social_security_number]" value="{{ old('data.social_security_number', $contract->data && $contract->data->social_security_number ? $contract->data->social_security_number : '') }}" pattern="^[1-2][0-9]{2}(0[1-9]|1[0-2])(2[AB]|[0-9]{2})[0-9]{8}$" oninput="validateSSN(this)">
+                                <small class="form-text text-muted">Format français uniquement (15 chiffres). Ce champ peut être laissé vide.</small>
+                                <div id="ssnFeedback" class="invalid-feedback" style="display: none;">Le numéro de sécurité sociale doit être au format français (15 chiffres).</div>
                                 @error('data.social_security_number')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -256,4 +264,27 @@
         </div>
     </div>
 </div>
+
+<script>
+function validateSSN(input) {
+    const regex = /^[1-2][0-9]{2}(0[1-9]|1[0-2])(2[AB]|[0-9]{2})[0-9]{8}$/;
+    const feedbackEl = document.getElementById('ssnFeedback');
+    
+    // Si le champ est vide, c'est valide
+    if (input.value === '') {
+        input.classList.remove('is-invalid');
+        feedbackEl.style.display = 'none';
+        return;
+    }
+    
+    // Si le format est incorrect
+    if (!regex.test(input.value)) {
+        input.classList.add('is-invalid');
+        feedbackEl.style.display = 'block';
+    } else {
+        input.classList.remove('is-invalid');
+        feedbackEl.style.display = 'none';
+    }
+}
+</script>
 @endsection 

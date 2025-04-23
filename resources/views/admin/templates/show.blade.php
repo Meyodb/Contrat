@@ -82,7 +82,7 @@
                                     <tr>
                                         <td>{{ $contract->id }}</td>
                                         <td>{{ $contract->title }}</td>
-                                        <td>{{ $contract->user->name }}</td>
+                                        <td>{{ $contract->user ? $contract->user->name : 'Utilisateur supprimé' }}</td>
                                         <td><span class="badge bg-{{ $contract->status == 'signed' ? 'success' : ($contract->status == 'pending' ? 'warning' : 'secondary') }}">{{ $contract->status }}</span></td>
                                         <td>
                                             <a href="{{ route('admin.contracts.show', $contract) }}" class="btn btn-sm btn-outline-info">Voir</a>

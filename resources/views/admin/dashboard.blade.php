@@ -45,7 +45,7 @@
                                 <tbody>
                                     @foreach($pendingContracts as $contract)
                                         <tr>
-                                            <td>{{ $contract->user->name }}</td>
+                                            <td>{{ $contract->user ? $contract->user->name : 'Utilisateur supprimé' }}</td>
                                             <td>
                                                 @if($contract->status == 'submitted')
                                                     <span class="badge bg-primary">Soumis</span>
@@ -53,7 +53,7 @@
                                                     <span class="badge bg-success">Signé par employé</span>
                                                 @endif
                                             </td>
-                                            <td>{{ $contract->data->monthly_hours ? : 'N/A'}}</td>
+                                            <td>{{ $contract->data ? ($contract->data->monthly_hours ? : 'N/A') : 'N/A' }}</td>
                                             <td>{{ $contract->submitted_at ? $contract->submitted_at->format('d/m/Y') : 'Non spécifiée' }}</td>
                                             <td>
                                                 <div class="btn-group">
@@ -102,7 +102,7 @@
                                 <tbody>
                                     @foreach($recentContracts as $contract)
                                         <tr>
-                                            <td>{{ $contract->user->name }}</td>
+                                            <td>{{ $contract->user ? $contract->user->name : 'Utilisateur supprimé' }}</td>
                                             <td>
                                                 @if($contract->status == 'draft')
                                                     <span class="badge bg-secondary">Brouillon</span>
@@ -120,7 +120,7 @@
                                                     <span class="badge bg-danger">Rejeté</span>
                                                 @endif
                                             </td>
-                                            <td>{{ $contract->data->monthly_hours ? : 'N/A' }}</td>
+                                            <td>{{ $contract->data ? ($contract->data->monthly_hours ? : 'N/A') : 'N/A' }}</td>
                                             <td>{{ $contract->created_at ? $contract->created_at->format('d/m/Y') : 'Non spécifiée' }}</td>
                                             <td>
                                                 <div class="btn-group">

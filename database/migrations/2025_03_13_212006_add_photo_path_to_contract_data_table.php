@@ -11,9 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('contract_data', function (Blueprint $table) {
-            $table->string('photo_path')->nullable()->after('nationality');
-        });
+        // Cette migration n'a plus besoin d'exécuter quoi que ce soit
+        // Le champ photo_path est déjà dans la table contract_data
     }
 
     /**
@@ -21,8 +20,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('contract_data', function (Blueprint $table) {
-            $table->dropColumn('photo_path');
-        });
+        // Rien à faire
     }
 };
